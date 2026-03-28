@@ -842,12 +842,17 @@ def download_execution_log(id):
         import os
         if os.path.exists(log.log_file):
             filename = os.path.basename(log.log_file)
-            return send_file(
+            response = send_file(
                 log.log_file,
                 mimetype='text/plain',
                 as_attachment=True,
                 download_name=filename
             )
+            # 添加缓存控制头，防止浏览器缓存
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
         else:
             return error_response('日志文件已被删除', 404)
     except Exception as e:

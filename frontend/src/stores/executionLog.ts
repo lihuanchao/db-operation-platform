@@ -61,17 +61,22 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
     loading.value = true
     try {
       const response = await downloadExecutionLog(id)
-      // 创建下载链接
-      const blob = new Blob([response as unknown as BlobPart], { type: 'text/plain' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `execution_log_${id}.log`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      ElMessage.success('日志下载成功')
+      // 检查响应是否成功
+      if (response.status === 200 || response.status === 304) {
+        // 创建下载链接
+        const blob = new Blob([response.data], { type: 'text/plain' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `execution_log_${id}.log`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        ElMessage.success('日志下载成功')
+      } else {
+        ElMessage.error('下载失败')
+      }
     } catch (error: any) {
       ElMessage.error(error.response?.data?.error || '下载失败')
     } finally {

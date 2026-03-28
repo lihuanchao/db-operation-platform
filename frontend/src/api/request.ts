@@ -20,6 +20,11 @@ request.interceptors.request.use(
 // Response interceptor
 request.interceptors.response.use(
   (response: AxiosResponse) => {
+    // 对于 blob 类型的响应，直接返回 response
+    if (response.config.responseType === 'blob') {
+      return response
+    }
+    // 对于普通 JSON 响应
     const res = response.data
     if (!res.success) {
       ElMessage.error(res.error || '请求失败')

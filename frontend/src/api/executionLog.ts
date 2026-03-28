@@ -15,8 +15,13 @@ export const getExecutionLog = (id: number) => {
 }
 
 export const downloadExecutionLog = (id: number) => {
-  return request.get<Blob, Blob>(`/execution-logs/${id}/download`, {
-    responseType: 'blob'
+  return request.get<any, any>(`/execution-logs/${id}/download`, {
+    responseType: 'blob',
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
   })
 }
 
