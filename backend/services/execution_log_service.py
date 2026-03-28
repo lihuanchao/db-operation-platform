@@ -1,5 +1,6 @@
 from models import ExecutionLog, ArchiveTask
 from extensions import db
+from sqlalchemy.orm import joinedload
 
 
 class ExecutionLogService:
@@ -12,7 +13,7 @@ class ExecutionLogService:
         """
         获取执行日志列表
         """
-        query = ExecutionLog.query
+        query = ExecutionLog.query.options(joinedload(ExecutionLog.task))
 
         if task_id:
             query = query.filter(ExecutionLog.task_id == task_id)
@@ -35,7 +36,7 @@ class ExecutionLogService:
         """
         获取执行日志详情
         """
-        log = ExecutionLog.query.get(log_id)
+        log = ExecutionLog.query.options(joinedload(ExecutionLog.task)).get(log_id)
         if not log:
             return None
         return log.to_dict()

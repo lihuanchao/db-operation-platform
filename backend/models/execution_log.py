@@ -24,6 +24,7 @@ class ExecutionLog(db.Model):
         return {
             'id': self.id,
             'task_id': self.task_id,
+            'task_name': self.task.task_name if self.task else None,
             'cron_job_id': self.cron_job_id,
             'start_time': self.start_time.strftime('%Y-%m-%d %H:%M:%S') if self.start_time else None,
             'end_time': self.end_time.strftime('%Y-%m-%d %H:%M:%S') if self.end_time else None,

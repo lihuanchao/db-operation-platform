@@ -38,7 +38,6 @@
 
     <el-card shadow="never" class="table-card">
       <el-table :data="store.list" v-loading="store.loading" stripe style="width: 100%">
-        <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="task_name" label="任务名称" min-width="150" />
         <el-table-column prop="source_connection.connection_name" label="源库连接" min-width="130">
           <template #default="{ row }">
@@ -78,7 +77,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="updated_at" label="更新时间" width="160" />
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button link type="primary" size="small" @click="handleExecute(row)">
@@ -548,13 +547,15 @@ function handleSizeChange(size: number) {
 
 .action-buttons {
   display: flex;
+  flex-direction: row;
   justify-content: center;
-  gap: 2px;
-  flex-wrap: wrap;
+  gap: 1px;
+  flex-wrap: nowrap;
 }
 
 .action-buttons .el-button {
-  padding: 4px 6px;
+  padding: 2px 4px;
+  font-size: 12px;
 }
 
 

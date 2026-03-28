@@ -123,6 +123,7 @@ export interface CronJobListResponse {
 export interface ExecutionLog {
   id?: number
   task_id: number
+  task_name?: string
   cron_job_id?: number
   start_time: string
   end_time?: string

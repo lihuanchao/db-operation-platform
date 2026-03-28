@@ -77,7 +77,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="updated_at" label="更新时间" width="180" />
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleExecute(row)">
               <el-icon><VideoPlay /></el-icon>

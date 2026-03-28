@@ -38,8 +38,11 @@
 
     <el-card shadow="never" class="table-card">
       <el-table :data="store.list" v-loading="store.loading" stripe style="width: 100%">
-        <el-table-column prop="id" label="日志ID" width="100" />
-        <el-table-column prop="task_id" label="任务ID" width="100" />
+        <el-table-column prop="task_name" label="任务名称" width="200">
+          <template #default="{ row }">
+            {{ row.task_name || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="执行状态" width="120">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">
