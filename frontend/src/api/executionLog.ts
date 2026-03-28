@@ -1,4 +1,5 @@
 import request from './request'
+import axios from 'axios'
 import type { ExecutionLog, ExecutionLogListResponse, ApiResponse } from '@/types'
 
 export const getExecutionLogList = (params?: {
@@ -15,7 +16,8 @@ export const getExecutionLog = (id: number) => {
 }
 
 export const downloadExecutionLog = (id: number) => {
-  return request.get<any, any>(`/execution-logs/${id}/download`, {
+  // 直接使用 axios 绕过响应拦截器
+  return axios.get(`/api/execution-logs/${id}/download`, {
     responseType: 'blob',
     headers: {
       'Cache-Control': 'no-cache, no-store, must-revalidate',

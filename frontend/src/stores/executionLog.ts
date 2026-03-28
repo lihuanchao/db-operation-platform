@@ -60,11 +60,15 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
   async function downloadLog(id: number) {
     loading.value = true
     try {
+      console.log('开始下载日志，ID:', id)
       const response = await downloadExecutionLog(id)
+      console.log('下载响应:', response)
+
       // 检查响应是否成功
-      if (response.status === 200 || response.status === 304) {
+      if (response && (response.status === 200 || response.status === 304)) {
         // 创建下载链接
         const blob = new Blob([response.data], { type: 'text/plain' })
+        console.log('Blob创建成功，大小:', blob.size)
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -75,10 +79,30 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
         document.body.removeChild(a)
         ElMessage.success('日志下载成功')
       } else {
+        console.error('响应状态码错误:', response?.status)
         ElMessage.error('下载失败')
       }
     } catch (error: any) {
-      ElMessage.error(error.response?.data?.error || '下载失败')
+      console.error('下载出错:', error)
+      // 尝试解析错误响应
+      if (error.response?.data) {
+        try {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            try {
+              const errorObj = JSON.parse(e.target?.result as string)
+              ElMessage.error(errorObj.error || '下载失败')
+            } catch {
+              ElMessage.error('下载失败')
+            }
+          }
+          reader.readAsText(error.response.data)
+        } catch {
+          ElMessage.error('下载失败')
+        }
+      } else {
+        ElMessage.error(error.message || '下载失败')
+      }
     } finally {
       loading.value = false
     }
