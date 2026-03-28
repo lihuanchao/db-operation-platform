@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(taskkill //F //PID 18564)",
+      "Bash(taskkill //F //PID 30740)",
+      "Read(//c/ai/claude-project/**)",
+      "Bash(xargs -r taskkill //F //PID)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": []
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "everything-claude-code@everything-claude-code": true
+  }
+}

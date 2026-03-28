@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}慢SQL详情 - 数据库运维管理系统{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2>慢SQL详情</h2>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary mt-2">返回列表</a>
+    </div>
+</div>
+
+{% if error_message %}
+<div class="alert alert-danger mb-4">
+    <strong>错误:</strong> {{ error_message }}
+</div>
+{% endif %}
+
+{% if slow_sql %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>基本信息</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Checksum:</strong> <code>{{ slow_sql.checksum }}</code></p>
+                <p><strong>主机:</strong> {{ slow_sql.host }}</p>
+                <p><strong>数据库:</strong> {{ slow_sql.database_name }}</p>
+                <p><strong>用户:</strong> {{ slow_sql.user_max }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>平均时间:</strong> <span class="badge bg-danger">{{ "%.2f"|format(slow_sql.avg_time) }}秒</span></p>
+                <p><strong>最大时间:</strong> {{ "%.2f"|format(slow_sql.max_time) }}秒</p>
+                <p><strong>最小时间:</strong> {{ "%.2f"|format(slow_sql.min_time) }}秒</p>
+                <p><strong>总计时间:</strong> {{ "%.2f"|format(slow_sql.total_time) }}秒</p>
+                <p><strong>执行次数:</strong> {{ slow_sql.execution_count }}</p>
+                <p><strong>最近出现:</strong>
+                    {% if slow_sql.last_seen %}
+                        {% if slow_sql.last_seen is string %}
+                            {{ slow_sql.last_seen }}
+                        {% else %}
+                            {{ slow_sql.last_seen.strftime('%Y-%m-%d %H:%M:%S') }}
+                        {% endif %}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>SQL语句</h5>
+        <button class="btn btn-sm btn-outline-secondary btn-copy" data-target="sqlCode">
+            <i class="bi bi-clipboard"></i> 复制
+        </button>
+    </div>
+    <div class="card-body">
+        <pre><code id="sqlCode">{{ slow_sql.sample }}</code></pre>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>优化建议</h5>
+        <div>
+            {% if slow_sql.optimized_suggestion %}
+            <button class="btn btn-sm btn-outline-secondary btn-copy me-2" data-target="suggestionContent">
+                <i class="bi bi-clipboard"></i> 复制
+            </button>
+            {% endif %}
+            {% if not slow_sql.is_optimized %}
+            <button id="btnOptimize" class="btn btn-warning">获取优化建议</button>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="optimizeLoading" class="text-center" style="display: none;">
+            <div class="spinner-border" role="status"></div>
+            <p class="mt-2">正在获取优化建议...</p>
+        </div>
+        <div id="suggestionContent">
+            {% if slow_sql.optimized_suggestion %}
+                <div class="markdown-body" id="suggestionText">
+                    {{ slow_sql.optimized_suggestion.replace('\n', '<br>')|safe }}
+                </div>
+            {% else %}
+                <p class="text-muted">暂无优化建议，点击上方按钮获取。</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col">
+        <a href="{{ url_for('download', checksum=slow_sql.checksum) }}" class="btn btn-success">
+            下载Markdown格式报告
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Copy to clipboard functionality
+    document.querySelectorAll('.btn-copy').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetId = this.dataset.target;
+            const targetEl = document.getElementById(targetId);
+            let text = '';
+
+            if (targetId === 'sqlCode') {
+                text = targetEl.textContent;
+            } else if (targetId === 'suggestionContent') {
+                const suggestionEl = document.getElementById('suggestionText') || targetEl.querySelector('.markdown-body');
+                if (suggestionEl) {
+                    text = suggestionEl.innerHTML.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '');
+                }
+            }
+
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalHtml = this.innerHTML;
+                    this.innerHTML = '<i class="bi bi-check"></i> 已复制';
+                    this.classList.remove('btn-outline-secondary');
+                    this.classList.add('btn-success');
+                    setTimeout(() => {
+                        this.innerHTML = originalHtml;
+                        this.classList.remove('btn-success');
+                        this.classList.add('btn-outline-secondary');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Copy failed:', err);
+                    alert('复制失败，请手动复制');
+                });
+            }
+        });
+    });
+
+    document.getElementById('btnOptimize')?.addEventListener('click', function() {
+        const loading = document.getElementById('optimizeLoading');
+        const content = document.getElementById('suggestionContent');
+        const btn = this;
+        const header = btn.closest('.card-header');
+
+        btn.disabled = true;
+        loading.style.display = 'block';
+        content.style.display = 'none';
+
+        fetch(`/optimize/{{ slow_sql.checksum }}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            loading.style.display = 'none';
+            content.style.display = 'block';
+
+            if (data.success) {
+                content.innerHTML = `<div class="markdown-body" id="suggestionText">${data.suggestion.replace(/\n/g, '<br>')}</div>`;
+
+                // Add copy button after optimization
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'btn btn-sm btn-outline-secondary btn-copy me-2';
+                copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> 复制';
+                copyBtn.dataset.target = 'suggestionContent';
+                copyBtn.addEventListener('click', function() {
+                    const suggestionEl = document.getElementById('suggestionText');
+                    if (suggestionEl) {
+                        const text = suggestionEl.innerHTML.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '');
+                        navigator.clipboard.writeText(text).then(() => {
+                            const originalHtml = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '<i class="bi bi-check"></i> 已复制';
+                            copyBtn.classList.remove('btn-outline-secondary');
+                            copyBtn.classList.add('btn-success');
+                            setTimeout(() => {
+                                copyBtn.innerHTML = originalHtml;
+                                copyBtn.classList.remove('btn-success');
+                                copyBtn.classList.add('btn-outline-secondary');
+                            }, 2000);
+                        });
+                    }
+                });
+
+                const btnGroup = header.querySelector('div');
+                btnGroup.insertBefore(copyBtn, btnGroup.firstChild);
+                btn.remove();
+            } else {
+                content.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                btn.disabled = false;
+            }
+        })
+        .catch(error => {
+            loading.style.display = 'none';
+            content.style.display = 'block';
+            content.innerHTML = `<div class="alert alert-danger">请求失败: ${error}</div>`;
+            btn.disabled = false;
+        });
+    });
+</script>
+{% endblock %}

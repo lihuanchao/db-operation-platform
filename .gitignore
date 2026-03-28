@@ -1,0 +1,64 @@
+# Dependencies
+venv/
+backend/venv/
+backend/__pycache__/
+frontend/node_modules/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs
+frontend/dist/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test and coverage
+htmlcov/
+.coverage
+.pytest_cache/
+coverage.xml
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Database
+data/
+*.sqlite3
+*.db
+
+# Archives
+*.rar
+*.zip
+*.tar.gz
+*.bz2
+*.tgz
+
+# Docker
+docker-compose.override.yml
+*.dockerignore
+.Dockerfile*
+
+# Temporary files
+*.tmp
+*.temp

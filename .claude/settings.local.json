@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(gh pr:*)",
+      "Bash(find:*)",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__list_directory_with_sizes",
+      "Bash(gh repo:*)",
+      "mcp__github__search_repositories",
+      "Bash(git config:*)",
+      "Bash(curl:*)",
+      "mcp__github__create_issue",
+      "Read(//c/Users/admin/.config/claude-code/**)",
+      "Read(//c/Users/admin/AppData/Roaming/claude-code/**)",
+      "Read(//c/ai/claude-project/$APPDATA/**)",
+      "Read(//c/ai/claude-project/$LOCALAPPDATA/**)",
+      "Bash(echo:*)",
+      "Bash(bash -c 'echo \"{\\\\\"file_path\\\\\":\\\\\"C:\\\\\\\\\\\\\\\\ai\\\\\\\\\\\\\\\\claude-project\\\\\\\\\\\\\\\\production\\\\\\\\\\\\\\\\config.json\\\\\"}\" | bash C:/ai/claude-project/test-hook.sh; echo \"Exit code: $?\"')",
+      "WebSearch",
+      "Bash(\"C:\\\\ai\\\\claude-project\\\\config.py\":*)",
+      "Bash(\"C:\\\\ai\\\\claude-project\\\\models\\\\__init__.py\":*)",
+      "Bash(\"C:\\\\ai\\\\claude-project\\\\services\\\\__init__.py\":*)",
+      "Bash(\"C:\\\\ai\\\\claude-project\\\\services\\\\slow_sql_service.py\":*)",
+      "Bash(\"C:\\\\ai\\\\claude-project\\\\utils\\\\__init__.py\":*)",
+      "Bash(\"C:\\\\ai\\\\claude-project\\\\templates\\\\base.html\":*)",
+      "Bash(pip install:*)",
+      "Bash(start:*)",
+      "Bash(source venv/Scripts/activate)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(source ../venv/Scripts/activate)",
+      "Bash(venv/Scripts/pip install:*)",
+      "Bash(/c/ai/claude-project/venv/Scripts/python.exe app.py)",
+      "Bash(npm run:*)",
+      "Bash(venvScriptsactivate)",
+      "Bash(pip list:*)",
+      "Bash(open https://garryslist.org/posts/boil-the-ocean)",
+      "Bash(xdg-open https://garryslist.org/posts/boil-the-ocean)",
+      "Bash(touch ~/.gstack/.completeness-intro-seen)",
+      "Bash(~/.claude/skills/gstack/bin/gstack-config set:*)",
+      "Bash(touch ~/.gstack/.telemetry-prompted)",
+      "Skill(plan-ceo-review)"
+    ]
+  },
+  "enabledPlugins": {
+    "everything-claude-code@everything-claude-code": true
+  }
+}
