@@ -263,7 +263,7 @@ class PTArchiver:
 
             # 等待进程完成，超时1小时
             try:
-                exit_code = process.wait(timeout=3600)
+                exit_code = process.wait()
             except subprocess.TimeoutExpired:
                 process.kill()
                 exit_code = -1
