@@ -37,6 +37,56 @@ export interface ApiResponse<T = any> {
   error?: string
 }
 
+export type OptimizationTaskType = 'sql' | 'mybatis'
+export type OptimizationTaskStatus = 'queued' | 'running' | 'completed' | 'failed'
+
+export interface OptimizationTask {
+  id: number
+  task_type: OptimizationTaskType
+  object_preview: string
+  object_content?: string
+  db_connection_id: number
+  database_name: string
+  database_host: string
+  status: OptimizationTaskStatus
+  progress: number
+  writing_optimization?: string | null
+  index_recommendation?: string | null
+  optimized_content?: string | null
+  full_suggestion?: string | null
+  matched_rules?: string | null
+  error_message?: string | null
+  created_at: string
+  updated_at: string
+  started_at?: string | null
+  finished_at?: string | null
+}
+
+export interface OptimizationTaskListQuery {
+  page: number
+  per_page: number
+  task_type?: OptimizationTaskType | ''
+}
+
+export interface OptimizationTaskListResponse {
+  items: OptimizationTask[]
+  total: number
+  page: number
+  per_page: number
+}
+
+export interface CreateSqlOptimizationTaskPayload {
+  db_connection_id: number
+  database_name: string
+  sql_text: string
+}
+
+export interface CreateMyBatisOptimizationTaskPayload {
+  db_connection_id: number
+  database_name: string
+  xml_text: string
+}
+
 export interface FilterParams {
   database_name: string
   host: string

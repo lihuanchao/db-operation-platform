@@ -8,6 +8,7 @@ from .db_connection import DbConnection
 from .archive_task import ArchiveTask
 from .cron_job import CronJob
 from .execution_log import ExecutionLog
+from .optimization_task import OptimizationTask
 
 __all__ = [
     'MonitorMysqlSlowQueryReview',
@@ -17,5 +18,6 @@ __all__ = [
     'DbConnection',
     'ArchiveTask',
     'CronJob',
-    'ExecutionLog'
+    'ExecutionLog',
+    'OptimizationTask'
 ]

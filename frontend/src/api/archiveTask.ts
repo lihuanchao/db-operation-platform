@@ -27,5 +27,8 @@ export const deleteArchiveTask = (id: number) => {
 }
 
 export const executeArchiveTask = (id: number) => {
-  return request.post<{ log_id: number; log_file: string; success: boolean }, ApiResponse<{ log_id: number; log_file: string; success: boolean }>>(`/archive-tasks/${id}/execute`)
+  return request.post<
+    { log_id: number; log_file?: string; success?: boolean; message?: string; status?: string },
+    ApiResponse<{ log_id: number; log_file?: string; success?: boolean; message?: string; status?: string }>
+  >(`/archive-tasks/${id}/execute`)
 }

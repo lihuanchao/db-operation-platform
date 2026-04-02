@@ -151,7 +151,7 @@ function handleSelectionChange(selection: SlowSQL[]) {
 }
 
 function goToDetail(checksum: string) {
-  router.push(`/detail/${checksum}`)
+  router.push(`/slow-sql/${checksum}`)
 }
 
 async function handleOptimize(row: SlowSQL) {

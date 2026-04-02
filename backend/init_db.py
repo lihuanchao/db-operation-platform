@@ -1,7 +1,7 @@
 from app import app
 from extensions import db
 from models.db_connection import DbConnection
-from models import ArchiveTask, CronJob, ExecutionLog
+from models import ArchiveTask, CronJob, ExecutionLog, OptimizationTask
 
 
 def init_db():
@@ -17,7 +17,8 @@ def init_db():
             'db_connection',
             'archive_task',
             'cron_job',
-            'execution_log'
+            'execution_log',
+            'optimization_task'
         ]
 
         for table_name in tables_to_check:

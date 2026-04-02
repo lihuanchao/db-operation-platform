@@ -120,7 +120,7 @@ onMounted(() => {
 })
 
 function goBack() {
-  router.push('/')
+  router.push('/slow-sqls')
 }
 
 function formatDate(date: string | Date) {

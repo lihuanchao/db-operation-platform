@@ -22,6 +22,7 @@ from services.sql_metadata_service import SQLMetadataService
 from services.archive_service import ArchiveService
 from services.cron_service import CronService
 from services.execution_log_service import ExecutionLogService
+from services.optimization_task_service import OptimizationTaskService
 from services.pt_archiver import PTArchiver
 from services.scheduler_service import SchedulerService
 from utils.downloader import Downloader
@@ -458,6 +459,69 @@ GROUP BY
         as_attachment=True,
         download_name=f'slow_sql_batch_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
     )
+
+
+# ==================== SQL优化建议任务 API ====================
+
+@app.route('/api/optimization-tasks', methods=['GET'])
+def get_optimization_tasks():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    task_type = request.args.get('task_type', '')
+    data = OptimizationTaskService.get_task_list(page, per_page, task_type)
+    return success_response(data)
+
+
+@app.route('/api/optimization-tasks/sql', methods=['POST'])
+def create_sql_optimization_task():
+    try:
+        data = request.json or {}
+        required_fields = ['db_connection_id', 'database_name', 'sql_text']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return error_response(f'{field} 是必填字段', 400)
+
+        task, error = OptimizationTaskService.create_task(
+            task_type='sql',
+            db_connection_id=int(data['db_connection_id']),
+            database_name=data['database_name'],
+            object_content=data['sql_text']
+        )
+        if error:
+            return error_response(error, 400)
+        return success_response(task)
+    except Exception as e:
+        return error_response(f'创建SQL优化任务失败: {str(e)}', 500)
+
+
+@app.route('/api/optimization-tasks/mybatis', methods=['POST'])
+def create_mybatis_optimization_task():
+    try:
+        data = request.json or {}
+        required_fields = ['db_connection_id', 'database_name', 'xml_text']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return error_response(f'{field} 是必填字段', 400)
+
+        task, error = OptimizationTaskService.create_task(
+            task_type='mybatis',
+            db_connection_id=int(data['db_connection_id']),
+            database_name=data['database_name'],
+            object_content=data['xml_text']
+        )
+        if error:
+            return error_response(error, 400)
+        return success_response(task)
+    except Exception as e:
+        return error_response(f'创建MyBatis优化任务失败: {str(e)}', 500)
+
+
+@app.route('/api/optimization-tasks/<int:id>', methods=['GET'])
+def get_optimization_task_detail(id):
+    task = OptimizationTaskService.get_task_detail(id)
+    if not task:
+        return error_response('优化任务不存在', 404)
+    return success_response(task)
 
 
 

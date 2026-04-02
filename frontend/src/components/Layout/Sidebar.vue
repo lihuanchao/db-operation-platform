@@ -11,7 +11,11 @@
       text-color="#fff"
       active-text-color="#fff"
     >
-      <el-menu-item index="/" @click="navigate('/')">
+      <el-menu-item index="/optimization-tasks" @click="navigate('/optimization-tasks')">
+        <el-icon><MagicStick /></el-icon>
+        <span>SQL优化建议</span>
+      </el-menu-item>
+      <el-menu-item index="/slow-sqls" @click="navigate('/slow-sqls')">
         <el-icon><DataLine /></el-icon>
         <span>慢SQL列表</span>
       </el-menu-item>
@@ -44,12 +48,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DataLine, RefreshLeft, Setting, FolderOpened, Document, List, Clock } from '@element-plus/icons-vue'
+import { DataLine, RefreshLeft, Setting, FolderOpened, Document, List, MagicStick } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 
-const activeMenu = computed(() => route.path)
+const activeMenu = computed(() => {
+  if (route.path.startsWith('/optimization-tasks')) {
+    return '/optimization-tasks'
+  }
+  if (route.path.startsWith('/slow-sql')) {
+    return '/slow-sqls'
+  }
+  return route.path
+})
 
 function navigate(path: string) {
   router.push(path)
