@@ -10,7 +10,11 @@ import os
 
 app = Flask(__name__)
 app.config.from_object(Config)
-CORS(app)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax'
+)
+CORS(app, supports_credentials=True)
 db.init_app(app)
 
 # Import models after db initialization
@@ -25,6 +29,10 @@ from services.execution_log_service import ExecutionLogService
 from services.optimization_task_service import OptimizationTaskService
 from services.pt_archiver import PTArchiver
 from services.scheduler_service import SchedulerService
+from services.auth_service import AuthService
+from services.access_control_service import AccessControlService, login_required, admin_required
+from services.user_admin_service import UserAdminService
+from services.slow_sql_query_service import SlowSqlQueryService
 from utils.downloader import Downloader
 
 # 初始化定时任务调度器
@@ -40,22 +48,14 @@ def error_response(message, status_code=400):
     return jsonify({'success': False, 'error': message}), status_code
 
 
-@app.route('/api/slow-sqls', methods=['GET'])
-def get_slow_sqls():
-    # Get filter parameters
-    database_name = request.args.get('database_name', '')
-    host = request.args.get('host', '')
-    is_optimized = request.args.get('is_optimized', '')
-    time_range = request.args.get('time_range', '')
-    ts_min = request.args.get('ts_min', '')
-    ts_max = request.args.get('ts_max', '')
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
+def get_request_ip():
+    forwarded_for = request.headers.get('X-Forwarded-For', '')
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return request.remote_addr
 
-    slow_sqls = []
-    total = 0
 
-    # Calculate time range based on selection
+def calculate_slow_sql_time_range(time_range, ts_min, ts_max):
     calculated_ts_min = ts_min
     calculated_ts_max = ts_max
 
@@ -74,77 +74,113 @@ def get_slow_sqls():
             calculated_ts_min = (now - timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
             calculated_ts_max = now.strftime('%Y-%m-%dT%H:%M')
 
+    parsed_ts_min = None
+    parsed_ts_max = None
+    if calculated_ts_min and calculated_ts_max:
+        try:
+            parsed_ts_min = datetime.fromisoformat(calculated_ts_min.replace('Z', '+00:00'))
+            parsed_ts_max = datetime.fromisoformat(calculated_ts_max.replace('Z', '+00:00'))
+            if parsed_ts_min > parsed_ts_max:
+                parsed_ts_min, parsed_ts_max = parsed_ts_max, parsed_ts_min
+        except Exception:
+            parsed_ts_min = None
+            parsed_ts_max = None
+    return parsed_ts_min, parsed_ts_max
+
+
+def get_slow_sql_record(checksum, allowed_hosts=None):
+    sql_query, params = SlowSqlQueryService.build_detail_query(checksum, allowed_hosts=allowed_hosts)
+    with db.engine.connect() as conn:
+        result = conn.execute(text(sql_query), params)
+        row = result.fetchone()
+        if not row:
+            return None
+        columns = result.keys()
+        return dict(zip(columns, row))
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    payload = request.get_json(silent=True) or {}
+    employee_no = (payload.get('employee_no') or '').strip()
+    password = payload.get('password') or ''
+    if not employee_no or not password:
+        return error_response('工号和密码不能为空', 400)
+
+    data, error = AuthService.login(
+        employee_no=employee_no,
+        password=password,
+        ip=get_request_ip(),
+        user_agent=request.headers.get('User-Agent', '')
+    )
+    if error:
+        message, status_code = error
+        return error_response(message, status_code)
+    return success_response(data)
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+@login_required
+def logout(current_user):
+    AuthService.logout()
+    return success_response({'logged_out': True})
+
+
+@app.route('/api/auth/me', methods=['GET'])
+@login_required
+def me(current_user):
+    return success_response(AuthService.build_auth_payload(current_user))
+
+
+@app.route('/api/auth/connections', methods=['GET'])
+@login_required
+def list_authorized_connections(current_user):
+    if current_user.role_code == 'admin':
+        connections = DbConnection.query.filter(DbConnection.is_enabled != 0).order_by(DbConnection.updated_at.desc()).all()
+    else:
+        connection_ids = UserAdminService.list_connection_permissions(current_user.id)
+        if not connection_ids:
+            connections = []
+        else:
+            connections = DbConnection.query.filter(
+                DbConnection.is_enabled != 0,
+                DbConnection.id.in_(connection_ids)
+            ).order_by(DbConnection.updated_at.desc()).all()
+    return success_response({'items': [item.to_dict() for item in connections]})
+
+
+@app.route('/api/slow-sqls', methods=['GET'])
+@login_required
+def get_slow_sqls(current_user):
+    database_name = request.args.get('database_name', '')
+    host = request.args.get('host', '')
+    is_optimized = request.args.get('is_optimized', '')
+    time_range = request.args.get('time_range', '')
+    ts_min = request.args.get('ts_min', '')
+    ts_max = request.args.get('ts_max', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    slow_sqls = []
+    total = 0
+
+    parsed_ts_min, parsed_ts_max = calculate_slow_sql_time_range(time_range, ts_min, ts_max)
+    allowed_hosts = AccessControlService.authorized_manage_hosts(current_user)
+
     try:
-        # Build raw SQL query based on the user's provided SQL
-        sql_query = """
-SELECT
-    a.checksum,
-    c.host,
-    b.db_max AS database_name,
-    a.sample,
-    a.last_seen,
-    SUM(b.ts_cnt) AS execution_count,
-    SUM(b.Query_time_sum) / SUM(b.ts_cnt) AS avg_time
-FROM
-    monitor_mysql_slow_query_review a
-    LEFT JOIN monitor_mysql_slow_query_review_history b ON a.checksum = b.checksum
-    LEFT JOIN db_resource c ON b.resid_max = c.res_id
-    LEFT JOIN monitor_mysql_slow_query_optimized m ON a.checksum = m.checksum
-WHERE
-    c.host IS NOT NULL
-    AND c.port IS NOT NULL
-    AND c.is_delete != 1
-    AND a.sample != 'commit'
-    AND (b.db_max != 'information_schema' OR b.db_max IS NULL)
-    AND b.user_max IS NOT NULL
-"""
+        sql_query, params = SlowSqlQueryService.build_list_query({
+            'database_name': database_name,
+            'host': host,
+            'is_optimized': is_optimized,
+            'ts_min': parsed_ts_min,
+            'ts_max': parsed_ts_max,
+        }, allowed_hosts=allowed_hosts)
 
-        params = {}
-
-        # Add host filter
-        if host:
-            sql_query += ' AND c.host = :host'
-            params['host'] = host
-
-        # Add database filter
-        if database_name:
-            sql_query += ' AND b.db_max = :database_name'
-            params['database_name'] = database_name
-
-        # Add is_optimized filter
-        if is_optimized == '1':
-            sql_query += ' AND m.is_optimized = 1'
-        elif is_optimized == '0':
-            sql_query += ' AND (m.is_optimized = 0 OR m.is_optimized IS NULL)'
-
-        # Add time range filter
-        if calculated_ts_min and calculated_ts_max:
-            try:
-                t1 = datetime.fromisoformat(calculated_ts_min.replace('Z', '+00:00'))
-                t2 = datetime.fromisoformat(calculated_ts_max.replace('Z', '+00:00'))
-                if t1 > t2:
-                    t1, t2 = t2, t1
-                sql_query += ' AND b.ts_min > :ts_min AND b.ts_max < :ts_max'
-                params['ts_min'] = t1
-                params['ts_max'] = t2
-            except Exception as e:
-                print(f"Time filter error: {e}")
-
-        sql_query += """
-GROUP BY
-    a.checksum
-ORDER BY
-    SUM(b.Query_time_sum) DESC
-"""
-
-        # Execute query
         with db.engine.connect() as conn:
-            # Get total count
             count_query = f'SELECT COUNT(*) FROM ({sql_query}) AS cnt'
             count_result = conn.execute(text(count_query), params)
             total = count_result.scalar() or 0
 
-            # Get paginated results
             offset = (page - 1) * per_page
             paginated_query = sql_query + ' LIMIT :limit OFFSET :offset'
             params['limit'] = per_page
@@ -184,45 +220,17 @@ ORDER BY
 
 
 @app.route('/api/slow-sqls/<checksum>', methods=['GET'])
-def get_slow_sql_detail(checksum):
-    # Get the slow SQL data with ALL fields from the original query
-    sql_query = """
-SELECT
-    a.checksum,
-    c.host,
-    b.db_max AS database_name,
-    b.user_max,
-    a.sample,
-    a.last_seen,
-    SUM(b.ts_cnt) AS execution_count,
-    SUM(b.Query_time_sum) / SUM(b.ts_cnt) AS avg_time,
-    MAX(b.Query_time_max) AS max_time,
-    MIN(b.Query_time_min) AS min_time,
-    SUM(b.Query_time_sum) AS total_time
-FROM
-    monitor_mysql_slow_query_review a
-    LEFT JOIN monitor_mysql_slow_query_review_history b ON a.checksum = b.checksum
-    LEFT JOIN db_resource c ON b.resid_max = c.res_id
-WHERE
-    a.checksum = :checksum
-GROUP BY
-    a.checksum
-"""
-
+@login_required
+def get_slow_sql_detail(current_user, checksum):
     try:
-        with db.engine.connect() as conn:
-            result = conn.execute(text(sql_query), {'checksum': checksum})
-            row = result.fetchone()
-            if not row:
-                return error_response("未找到该SQL记录", 404)
+        allowed_hosts = AccessControlService.authorized_manage_hosts(current_user)
+        slow_sql = get_slow_sql_record(checksum, allowed_hosts=allowed_hosts)
+        if not slow_sql:
+            return error_response("未找到该SQL记录", 404)
 
-            columns = result.keys()
-            slow_sql = dict(zip(columns, row))
-
-            # Get optimization suggestion
-            opt = MonitorMysqlSlowQueryOptimized.query.get(checksum)
-            slow_sql['optimized_suggestion'] = opt.optimized_suggestion if opt else None
-            slow_sql['is_optimized'] = opt.is_optimized if opt else 0
+        opt = MonitorMysqlSlowQueryOptimized.query.get(checksum)
+        slow_sql['optimized_suggestion'] = opt.optimized_suggestion if opt else None
+        slow_sql['is_optimized'] = opt.is_optimized if opt else 0
 
         return success_response(slow_sql)
     except Exception as e:
@@ -230,29 +238,17 @@ GROUP BY
 
 
 @app.route('/api/slow-sqls/<checksum>/optimize', methods=['POST'])
-def optimize_slow_sql(checksum):
+@login_required
+def optimize_slow_sql(current_user, checksum):
     try:
-        # Get the SQL sample, host, and database name
-        sample = None
-        host = None
-        database_name = None
-        with db.engine.connect() as conn:
-            sql_query = """
-SELECT a.sample, c.host, b.db_max
-FROM monitor_mysql_slow_query_review a
-LEFT JOIN monitor_mysql_slow_query_review_history b ON a.checksum = b.checksum
-LEFT JOIN db_resource c ON b.resid_max = c.res_id
-WHERE a.checksum = :checksum
-LIMIT 1
-"""
-            result = conn.execute(text(sql_query), {'checksum': checksum})
-            row = result.fetchone()
-            if not row or not row[0]:
-                return error_response('SQL not found', 404)
+        allowed_hosts = AccessControlService.authorized_manage_hosts(current_user)
+        slow_sql = get_slow_sql_record(checksum, allowed_hosts=allowed_hosts)
+        if not slow_sql or not slow_sql.get('sample'):
+            return error_response('SQL not found', 404)
 
-            sample = row[0]
-            host = row[1]
-            database_name = row[2]
+        sample = slow_sql['sample']
+        host = slow_sql['host']
+        database_name = slow_sql['database_name']
 
         # Find matching database connection
         db_connection = None
@@ -279,43 +275,29 @@ LIMIT 1
 
 
 @app.route('/api/slow-sqls/batch-optimize', methods=['POST'])
-def batch_optimize_slow_sqls():
-    checksums = request.json.get('ids', [])
+@login_required
+def batch_optimize_slow_sqls(current_user):
+    checksums = (request.get_json(silent=True) or {}).get('ids', [])
     if not checksums:
         return error_response('No checksums provided', 400)
 
     llm_service = LLMService()
     metadata_service = SQLMetadataService()
-    # Get all enabled connections once
     db_connections = DbConnection.query.filter(DbConnection.is_enabled != 0).all()
+    allowed_hosts = AccessControlService.authorized_manage_hosts(current_user)
     results = []
 
     for checksum in checksums:
-        # Get the SQL sample, host, and database name
-        sample = None
-        host = None
-        database_name = None
-        sql_query = '''
-SELECT a.sample, c.host, b.db_max
-FROM monitor_mysql_slow_query_review a
-LEFT JOIN monitor_mysql_slow_query_review_history b ON a.checksum = b.checksum
-LEFT JOIN db_resource c ON b.resid_max = c.res_id
-WHERE a.checksum = :checksum
-LIMIT 1
-'''
         try:
-            with db.engine.connect() as conn:
-                result = conn.execute(text(sql_query), {'checksum': checksum})
-                row = result.fetchone()
-                if not row or not row[0]:
-                    results.append({'id': checksum, 'success': False, 'error': 'Not found'})
-                    continue
+            slow_sql = get_slow_sql_record(checksum, allowed_hosts=allowed_hosts)
+            if not slow_sql or not slow_sql.get('sample'):
+                results.append({'id': checksum, 'success': False, 'error': 'Not found'})
+                continue
 
-                sample = row[0]
-                host = row[1]
-                database_name = row[2]
+            sample = slow_sql['sample']
+            host = slow_sql['host']
+            database_name = slow_sql['database_name']
 
-            # Find matching database connection
             db_connection = None
             if host:
                 db_connection = metadata_service.get_connection_by_manage_host(db_connections, host)
@@ -338,40 +320,17 @@ LIMIT 1
 
 
 @app.route('/api/slow-sqls/<checksum>/download', methods=['GET'])
-def download_slow_sql(checksum):
-    # Get data for download
-    sql_query = """
-SELECT
-    a.checksum,
-    b.db_max AS database_name,
-    a.sample,
-    a.last_seen,
-    SUM(b.ts_cnt) AS execution_count,
-    SUM(b.Query_time_sum) / SUM(b.ts_cnt) AS avg_time
-FROM
-    monitor_mysql_slow_query_review a
-    LEFT JOIN monitor_mysql_slow_query_review_history b ON a.checksum = b.checksum
-WHERE
-    a.checksum = :checksum
-GROUP BY
-    a.checksum
-"""
-
+@login_required
+def download_slow_sql(current_user, checksum):
     try:
-        with db.engine.connect() as conn:
-            result = conn.execute(text(sql_query), {'checksum': checksum})
-            row = result.fetchone()
-            if not row:
-                return error_response("Not found", 404)
+        allowed_hosts = AccessControlService.authorized_manage_hosts(current_user)
+        data = get_slow_sql_record(checksum, allowed_hosts=allowed_hosts)
+        if not data:
+            return error_response("Not found", 404)
 
-            columns = result.keys()
-            data = dict(zip(columns, row))
+        opt = MonitorMysqlSlowQueryOptimized.query.get(checksum)
+        data['optimized_suggestion'] = opt.optimized_suggestion if opt else None
 
-            # Get optimization suggestion
-            opt = MonitorMysqlSlowQueryOptimized.query.get(checksum)
-            data['optimized_suggestion'] = opt.optimized_suggestion if opt else None
-
-        # Create a simple object for the downloader
         class SimpleSlowSQL:
             def __init__(self, data):
                 self.checksum = data['checksum']
@@ -395,58 +354,35 @@ GROUP BY
 
 
 @app.route('/api/slow-sqls/batch-download', methods=['POST'])
-def batch_download_slow_sqls():
-    checksums = request.json.get('ids', [])
+@login_required
+def batch_download_slow_sqls(current_user):
+    checksums = (request.get_json(silent=True) or {}).get('ids', [])
     if not checksums:
         return error_response("No checksums provided", 400)
 
-    # Get all data
+    allowed_hosts = AccessControlService.authorized_manage_hosts(current_user)
     slow_sqls = []
     for checksum in checksums:
-        sql_query = """
-SELECT
-    a.checksum,
-    c.host,
-    b.db_max AS database_name,
-    a.sample,
-    a.last_seen,
-    SUM(b.ts_cnt) AS execution_count,
-    SUM(b.Query_time_sum) / SUM(b.ts_cnt) AS avg_time
-FROM
-    monitor_mysql_slow_query_review a
-    LEFT JOIN monitor_mysql_slow_query_review_history b ON a.checksum = b.checksum
-    LEFT JOIN db_resource c ON b.resid_max = c.res_id
-WHERE
-    a.checksum = :checksum
-GROUP BY
-    a.checksum
-"""
-
         try:
-            with db.engine.connect() as conn:
-                result = conn.execute(text(sql_query), {'checksum': checksum})
-                row = result.fetchone()
-                if row:
-                    columns = result.keys()
-                    data = dict(zip(columns, row))
+            data = get_slow_sql_record(checksum, allowed_hosts=allowed_hosts)
+            if not data:
+                continue
 
-                    # Get optimization suggestion
-                    opt = MonitorMysqlSlowQueryOptimized.query.get(checksum)
-                    data['optimized_suggestion'] = opt.optimized_suggestion if opt else None
+            opt = MonitorMysqlSlowQueryOptimized.query.get(checksum)
+            data['optimized_suggestion'] = opt.optimized_suggestion if opt else None
 
-                    # Create simple object
-                    class SimpleSlowSQL:
-                        def __init__(self, d):
-                            self.checksum = d['checksum']
-                            self.host = d['host']
-                            self.database_name = d['database_name']
-                            self.sample = d['sample']
-                            self.execution_time = d['avg_time']
-                            self.execution_count = d['execution_count']
-                            self.last_seen = d['last_seen']
-                            self.optimized_suggestion = d['optimized_suggestion']
+            class SimpleSlowSQL:
+                def __init__(self, d):
+                    self.checksum = d['checksum']
+                    self.host = d['host']
+                    self.database_name = d['database_name']
+                    self.sample = d['sample']
+                    self.execution_time = d['avg_time']
+                    self.execution_count = d['execution_count']
+                    self.last_seen = d['last_seen']
+                    self.optimized_suggestion = d['optimized_suggestion']
 
-                    slow_sqls.append(SimpleSlowSQL(data))
+            slow_sqls.append(SimpleSlowSQL(data))
         except Exception as e:
             print(f"Error fetching {checksum}: {e}")
             continue
@@ -464,18 +400,20 @@ GROUP BY
 # ==================== SQL优化建议任务 API ====================
 
 @app.route('/api/optimization-tasks', methods=['GET'])
-def get_optimization_tasks():
+@login_required
+def get_optimization_tasks(current_user):
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     task_type = request.args.get('task_type', '')
-    data = OptimizationTaskService.get_task_list(page, per_page, task_type)
+    data = OptimizationTaskService.get_task_list(page, per_page, task_type, current_user=current_user)
     return success_response(data)
 
 
 @app.route('/api/optimization-tasks/sql', methods=['POST'])
-def create_sql_optimization_task():
+@login_required
+def create_sql_optimization_task(current_user):
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         required_fields = ['db_connection_id', 'database_name', 'sql_text']
         for field in required_fields:
             if field not in data or not data[field]:
@@ -485,19 +423,23 @@ def create_sql_optimization_task():
             task_type='sql',
             db_connection_id=int(data['db_connection_id']),
             database_name=data['database_name'],
-            object_content=data['sql_text']
+            object_content=data['sql_text'],
+            current_user=current_user
         )
         if error:
             return error_response(error, 400)
         return success_response(task)
+    except PermissionError as e:
+        return error_response(str(e), 403)
     except Exception as e:
         return error_response(f'创建SQL优化任务失败: {str(e)}', 500)
 
 
 @app.route('/api/optimization-tasks/mybatis', methods=['POST'])
-def create_mybatis_optimization_task():
+@login_required
+def create_mybatis_optimization_task(current_user):
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         required_fields = ['db_connection_id', 'database_name', 'xml_text']
         for field in required_fields:
             if field not in data or not data[field]:
@@ -507,26 +449,124 @@ def create_mybatis_optimization_task():
             task_type='mybatis',
             db_connection_id=int(data['db_connection_id']),
             database_name=data['database_name'],
-            object_content=data['xml_text']
+            object_content=data['xml_text'],
+            current_user=current_user
         )
         if error:
             return error_response(error, 400)
         return success_response(task)
+    except PermissionError as e:
+        return error_response(str(e), 403)
     except Exception as e:
         return error_response(f'创建MyBatis优化任务失败: {str(e)}', 500)
 
 
 @app.route('/api/optimization-tasks/<int:id>', methods=['GET'])
-def get_optimization_task_detail(id):
-    task = OptimizationTaskService.get_task_detail(id)
+@login_required
+def get_optimization_task_detail(current_user, id):
+    task = OptimizationTaskService.get_task_detail(id, current_user=current_user)
     if not task:
         return error_response('优化任务不存在', 404)
     return success_response(task)
 
 
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def admin_list_users(current_user):
+    return success_response({'items': UserAdminService.list_users()})
+
+
+@app.route('/api/admin/users', methods=['POST'])
+@admin_required
+def admin_create_user(current_user):
+    payload = request.get_json(silent=True) or {}
+    try:
+        user = UserAdminService.create_user(payload, current_user.id)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    return success_response(user.to_dict())
+
+
+@app.route('/api/admin/users/<int:user_id>', methods=['PUT'])
+@admin_required
+def admin_update_user(current_user, user_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        user = UserAdminService.update_user(user_id, payload, current_user.id)
+    except LookupError as e:
+        return error_response(str(e), 404)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    return success_response(user.to_dict())
+
+
+@app.route('/api/admin/users/<int:user_id>/status', methods=['PUT'])
+@admin_required
+def admin_update_user_status(current_user, user_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        user = UserAdminService.update_status(user_id, payload.get('status'), current_user.id)
+    except LookupError as e:
+        return error_response(str(e), 404)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    return success_response(user.to_dict())
+
+
+@app.route('/api/admin/users/<int:user_id>/reset-password', methods=['PUT'])
+@admin_required
+def admin_reset_user_password(current_user, user_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        user = UserAdminService.reset_password(user_id, payload.get('password'), current_user.id)
+    except LookupError as e:
+        return error_response(str(e), 404)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    return success_response(user.to_dict())
+
+
+@app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_user(current_user, user_id):
+    try:
+        UserAdminService.soft_delete_user(user_id, current_user.id)
+    except LookupError as e:
+        return error_response(str(e), 404)
+    return success_response({'deleted': True})
+
+
+@app.route('/api/admin/roles', methods=['GET'])
+@admin_required
+def admin_list_roles(current_user):
+    return success_response(UserAdminService.FIXED_ROLES)
+
+
+@app.route('/api/admin/user-connection-permissions/<int:user_id>', methods=['GET'])
+@admin_required
+def get_user_connection_permissions(current_user, user_id):
+    return success_response({'connection_ids': UserAdminService.list_connection_permissions(user_id)})
+
+
+@app.route('/api/admin/user-connection-permissions/<int:user_id>', methods=['PUT'])
+@admin_required
+def replace_user_connection_permissions(current_user, user_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        connection_ids = UserAdminService.replace_connection_permissions(
+            user_id,
+            payload.get('connection_ids', []),
+            current_user.id
+        )
+    except LookupError as e:
+        return error_response(str(e), 404)
+    return success_response({'connection_ids': connection_ids})
+
+
 
 @app.route('/api/connections', methods=['GET'])
-def get_connections():
+@admin_required
+def get_connections(current_user):
     """获取连接列表"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
@@ -554,7 +594,8 @@ def get_connections():
 
 
 @app.route('/api/connections', methods=['POST'])
-def create_connection():
+@admin_required
+def create_connection(current_user):
     """新增连接"""
     try:
         data = request.json
@@ -587,7 +628,8 @@ def create_connection():
 
 
 @app.route('/api/connections/<int:id>', methods=['GET'])
-def get_connection(id):
+@admin_required
+def get_connection(current_user, id):
     """获取单个连接"""
     connection = DbConnection.query.get(id)
     if not connection:
@@ -597,7 +639,8 @@ def get_connection(id):
 
 
 @app.route('/api/connections/<int:id>', methods=['PUT'])
-def update_connection(id):
+@admin_required
+def update_connection(current_user, id):
     """更新连接"""
     try:
         connection = DbConnection.query.get(id)
@@ -639,7 +682,8 @@ def update_connection(id):
 
 
 @app.route('/api/connections/<int:id>', methods=['DELETE'])
-def delete_connection(id):
+@admin_required
+def delete_connection(current_user, id):
     """删除连接"""
     try:
         connection = DbConnection.query.get(id)
@@ -655,7 +699,8 @@ def delete_connection(id):
 
 
 @app.route('/api/connections/test-direct', methods=['POST'])
-def test_connection_direct():
+@admin_required
+def test_connection_direct(current_user):
     """直接测试连接信息（不保存到数据库）"""
     try:
         data = request.json
@@ -679,7 +724,8 @@ def test_connection_direct():
 
 
 @app.route('/api/connections/<int:id>/test', methods=['POST'])
-def test_connection(id):
+@admin_required
+def test_connection(current_user, id):
     """测试连接（通过已保存的连接ID）"""
     connection = DbConnection.query.get(id)
     if not connection:
@@ -703,7 +749,8 @@ def test_connection(id):
 # ==================== 归档任务 API ====================
 
 @app.route('/api/archive-tasks', methods=['GET'])
-def get_archive_tasks():
+@admin_required
+def get_archive_tasks(current_user):
     """获取归档任务列表"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
@@ -715,7 +762,8 @@ def get_archive_tasks():
 
 
 @app.route('/api/archive-tasks', methods=['POST'])
-def create_archive_task():
+@admin_required
+def create_archive_task(current_user):
     """创建归档任务"""
     try:
         data = request.json
@@ -733,7 +781,8 @@ def create_archive_task():
 
 
 @app.route('/api/archive-tasks/<int:id>', methods=['GET'])
-def get_archive_task(id):
+@admin_required
+def get_archive_task(current_user, id):
     """获取归档任务详情"""
     task = ArchiveService.get_task_detail(id)
     if not task:
@@ -742,7 +791,8 @@ def get_archive_task(id):
 
 
 @app.route('/api/archive-tasks/<int:id>', methods=['PUT'])
-def update_archive_task(id):
+@admin_required
+def update_archive_task(current_user, id):
     """更新归档任务"""
     try:
         data = request.json
@@ -755,7 +805,8 @@ def update_archive_task(id):
 
 
 @app.route('/api/archive-tasks/<int:id>', methods=['DELETE'])
-def delete_archive_task(id):
+@admin_required
+def delete_archive_task(current_user, id):
     """删除归档任务"""
     try:
         result, error = ArchiveService.delete_task(id)
@@ -767,7 +818,8 @@ def delete_archive_task(id):
 
 
 @app.route('/api/archive-tasks/<int:id>/execute', methods=['POST'])
-def execute_archive_task(id):
+@admin_required
+def execute_archive_task(current_user, id):
     """立即执行归档任务（异步）"""
     try:
         task = ArchiveTask.query.get(id)
@@ -798,7 +850,8 @@ def execute_archive_task(id):
 # ==================== 定时任务 API ====================
 
 @app.route('/api/cron-jobs', methods=['GET'])
-def get_cron_jobs():
+@admin_required
+def get_cron_jobs(current_user):
     """获取定时任务列表"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
@@ -809,7 +862,8 @@ def get_cron_jobs():
 
 
 @app.route('/api/cron-jobs', methods=['POST'])
-def create_cron_job():
+@admin_required
+def create_cron_job(current_user):
     """创建定时任务"""
     try:
         data = request.json
@@ -827,7 +881,8 @@ def create_cron_job():
 
 
 @app.route('/api/cron-jobs/<int:id>', methods=['GET'])
-def get_cron_job(id):
+@admin_required
+def get_cron_job(current_user, id):
     """获取定时任务详情"""
     job = CronService.get_job_detail(id)
     if not job:
@@ -836,7 +891,8 @@ def get_cron_job(id):
 
 
 @app.route('/api/cron-jobs/<int:id>', methods=['PUT'])
-def update_cron_job(id):
+@admin_required
+def update_cron_job(current_user, id):
     """更新定时任务"""
     try:
         data = request.json
@@ -849,7 +905,8 @@ def update_cron_job(id):
 
 
 @app.route('/api/cron-jobs/<int:id>', methods=['DELETE'])
-def delete_cron_job(id):
+@admin_required
+def delete_cron_job(current_user, id):
     """删除定时任务"""
     try:
         result, error = CronService.delete_job(id)
@@ -861,7 +918,8 @@ def delete_cron_job(id):
 
 
 @app.route('/api/cron-jobs/<int:id>/toggle', methods=['POST'])
-def toggle_cron_job(id):
+@admin_required
+def toggle_cron_job(current_user, id):
     """切换定时任务状态"""
     try:
         job, error = CronService.toggle_job(id)
@@ -875,7 +933,8 @@ def toggle_cron_job(id):
 # ==================== 执行日志 API ====================
 
 @app.route('/api/execution-logs', methods=['GET'])
-def get_execution_logs():
+@admin_required
+def get_execution_logs(current_user):
     """获取执行日志列表"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
@@ -887,7 +946,8 @@ def get_execution_logs():
 
 
 @app.route('/api/execution-logs/<int:id>', methods=['GET'])
-def get_execution_log(id):
+@admin_required
+def get_execution_log(current_user, id):
     """获取执行日志详情"""
     log = ExecutionLogService.get_log_detail(id)
     if not log:
@@ -896,7 +956,8 @@ def get_execution_log(id):
 
 
 @app.route('/api/execution-logs/<int:id>/download', methods=['GET'])
-def download_execution_log(id):
+@admin_required
+def download_execution_log(current_user, id):
     """下载执行日志文件"""
     log = ExecutionLog.query.get(id)
     if not log or not log.log_file:
@@ -924,7 +985,8 @@ def download_execution_log(id):
 
 
 @app.route('/api/execution-logs/<int:id>/log-content', methods=['GET'])
-def get_log_content(id):
+@admin_required
+def get_log_content(current_user, id):
     """获取执行日志的实时内容"""
     log = ExecutionLog.query.get(id)
     if not log:

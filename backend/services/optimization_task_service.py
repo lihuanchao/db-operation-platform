@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 from extensions import db
 from models import DbConnection, OptimizationTask
+from services.access_control_service import AccessControlService
 from services.llm_service import LLMService
 
 
@@ -12,10 +13,8 @@ class OptimizationTaskService:
     ALLOWED_TYPES = {'sql', 'mybatis'}
 
     @classmethod
-    def get_task_list(cls, page=1, per_page=10, task_type=''):
-        query = OptimizationTask.query
-        if task_type:
-            query = query.filter(OptimizationTask.task_type == task_type)
+    def get_task_list(cls, page=1, per_page=10, task_type='', current_user=None):
+        query = cls._build_scoped_query(task_type=task_type, current_user=current_user)
 
         total = query.count()
         tasks = query.order_by(OptimizationTask.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
@@ -27,8 +26,9 @@ class OptimizationTaskService:
         }
 
     @classmethod
-    def get_task_detail(cls, task_id):
-        task = OptimizationTask.query.get(task_id)
+    def get_task_detail(cls, task_id, current_user=None):
+        query = cls._build_scoped_query(current_user=current_user)
+        task = query.filter(OptimizationTask.id == task_id).first()
         if not task:
             return None
         data = task.to_dict(include_content=True)
@@ -44,7 +44,7 @@ class OptimizationTaskService:
         return data
 
     @classmethod
-    def create_task(cls, task_type: str, db_connection_id: int, database_name: str, object_content: str):
+    def create_task(cls, task_type: str, db_connection_id: int, database_name: str, object_content: str, current_user=None):
         task_type = (task_type or '').strip().lower()
         if task_type not in cls.ALLOWED_TYPES:
             return None, '无效的任务类型'
@@ -60,6 +60,8 @@ class OptimizationTaskService:
         db_connection = DbConnection.query.get(db_connection_id)
         if not db_connection or db_connection.is_enabled == 0:
             return None, '数据库连接不存在或已禁用'
+        if current_user is not None:
+            AccessControlService.ensure_connection_access(current_user, db_connection.id)
 
         preview = cls._build_preview(object_content)
         task = OptimizationTask(
@@ -67,8 +69,11 @@ class OptimizationTaskService:
             object_content=object_content,
             object_preview=preview,
             db_connection_id=db_connection.id,
+            connection_id=db_connection.id,
             database_name=database_name,
             database_host=db_connection.host,
+            creator_user_id=current_user.id if current_user else None,
+            creator_employee_no=current_user.employee_no if current_user else None,
             status='queued',
             progress=0
         )
@@ -78,6 +83,20 @@ class OptimizationTaskService:
 
         cls._run_task_async(task.id)
         return task.to_dict(), None
+
+    @classmethod
+    def _build_scoped_query(cls, task_type='', current_user=None):
+        query = OptimizationTask.query
+        if task_type:
+            query = query.filter(OptimizationTask.task_type == task_type)
+
+        if current_user and current_user.role_code != 'admin':
+            authorized_ids = AccessControlService.authorized_connection_ids(current_user) or [-1]
+            query = query.filter(
+                OptimizationTask.creator_user_id == current_user.id,
+                OptimizationTask.connection_id.in_(authorized_ids)
+            )
+        return query
 
     @classmethod
     def _run_task_async(cls, task_id: int):

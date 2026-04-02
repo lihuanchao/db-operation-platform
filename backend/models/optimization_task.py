@@ -2,17 +2,22 @@ from datetime import datetime
 
 from extensions import db
 
+SQLITE_BIGINT = db.BigInteger().with_variant(db.Integer, 'sqlite')
+
 
 class OptimizationTask(db.Model):
     __tablename__ = 'optimization_task'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True, comment='优化任务ID')
+    id = db.Column(SQLITE_BIGINT, primary_key=True, autoincrement=True, comment='优化任务ID')
     task_type = db.Column(db.String(20), nullable=False, comment='任务类型：sql/mybatis')
     object_content = db.Column(db.Text, nullable=False, comment='待优化对象内容(SQL/XML)')
     object_preview = db.Column(db.String(255), nullable=False, comment='对象预览')
     db_connection_id = db.Column(db.BigInteger, db.ForeignKey('db_connection.id'), nullable=False, comment='数据库连接ID')
     database_name = db.Column(db.String(100), nullable=False, comment='数据库名称')
     database_host = db.Column(db.String(100), nullable=False, comment='数据库IP')
+    creator_user_id = db.Column(db.BigInteger, nullable=True, comment='创建人用户ID')
+    creator_employee_no = db.Column(db.String(32), nullable=True, comment='创建人工号')
+    connection_id = db.Column(db.BigInteger, nullable=True, comment='权限过滤使用的连接ID')
     status = db.Column(db.String(20), nullable=False, default='queued', comment='状态：queued/running/completed/failed')
     progress = db.Column(db.Integer, nullable=False, default=0, comment='优化进度百分比')
     writing_optimization = db.Column(db.Text, nullable=True, comment='写法优化建议')
@@ -33,8 +38,11 @@ class OptimizationTask(db.Model):
             'task_type': self.task_type,
             'object_preview': self.object_preview,
             'db_connection_id': self.db_connection_id,
+            'connection_id': self.connection_id,
             'database_name': self.database_name,
             'database_host': self.database_host,
+            'creator_user_id': self.creator_user_id,
+            'creator_employee_no': self.creator_employee_no,
             'status': self.status,
             'progress': self.progress,
             'error_message': self.error_message,
