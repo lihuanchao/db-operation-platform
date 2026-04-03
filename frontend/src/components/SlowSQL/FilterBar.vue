@@ -1,10 +1,5 @@
 <template>
   <el-card class="filter-card" shadow="never">
-    <template #header>
-      <div class="card-header">
-        <span>筛选条件</span>
-      </div>
-    </template>
     <el-form :model="localFilters" inline class="filter-form">
       <el-form-item label="主机">
         <el-input
@@ -112,10 +107,6 @@ function handleReset() {
 <style scoped>
 .filter-card {
   margin-bottom: 20px;
-}
-
-.card-header {
-  font-weight: 600;
 }
 
 .filter-form {
