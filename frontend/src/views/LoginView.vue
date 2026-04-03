@@ -58,6 +58,10 @@ async function handleSubmit() {
     })
     await authStore.fetchAuthorizedConnections()
     router.replace(authStore.homePath)
+  } catch (error: any) {
+    if (error?.response?.status === 401) {
+      ElMessage.error('您输入的用户名或密码错误，请重新输入')
+    }
   } finally {
     loading.value = false
   }
