@@ -1,11 +1,17 @@
 <template>
   <AppLayout>
     <div class="page-header">
-      <h2>用户管理</h2>
-      <el-button type="primary" @click="openCreate">新增用户</el-button>
+      <div>
+        <h2>用户管理</h2>
+        <p>管理员可新增、编辑、禁用、启用和删除账号</p>
+      </div>
+      <div class="header-actions">
+        <el-input v-model="keyword" placeholder="搜索姓名/工号/部门" clearable class="search-input" />
+        <el-button type="primary" @click="openCreate">新增用户</el-button>
+      </div>
     </div>
 
-    <el-table :data="store.list" v-loading="store.loading" stripe>
+    <el-table :data="filteredList" v-loading="store.loading" stripe class="user-table">
       <el-table-column prop="real_name" label="姓名" width="140" />
       <el-table-column prop="employee_no" label="工号" width="140" />
       <el-table-column prop="department" label="部门" min-width="180" />
@@ -70,13 +76,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AppLayout from '@/components/Layout/AppLayout.vue'
 import { useUserAdminStore } from '@/stores/userAdmin'
 import type { SysUser } from '@/types'
 
 const store = useUserAdminStore()
+const keyword = ref('')
 const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
 
@@ -90,6 +97,18 @@ const form = reactive({
 })
 
 const isEdit = ref(false)
+const filteredList = computed(() => {
+  const text = keyword.value.trim().toLowerCase()
+  if (!text) return store.list
+  return store.list.filter((item) => {
+    const roleLabel = item.role_code === 'admin' ? '管理员' : '普通用户'
+    const statusLabel = item.status === 'enabled' ? '启用' : '禁用'
+    return [item.real_name, item.employee_no, item.department, roleLabel, statusLabel]
+      .join(' ')
+      .toLowerCase()
+      .includes(text)
+  })
+})
 
 onMounted(() => {
   store.fetchList()
@@ -130,6 +149,7 @@ async function submitForm() {
       role_code: form.role_code,
       status: form.status
     })
+    ElMessage.success('用户信息已更新')
   } else {
     await store.addUser({
       employee_no: form.employee_no,
@@ -139,6 +159,7 @@ async function submitForm() {
       role_code: form.role_code,
       status: form.status
     })
+    ElMessage.success('用户创建成功')
   }
   dialogVisible.value = false
 }
@@ -146,16 +167,19 @@ async function submitForm() {
 async function toggleStatus(row: SysUser) {
   const targetStatus = row.status === 'enabled' ? 'disabled' : 'enabled'
   await store.setUserStatus(row.id, targetStatus)
+  ElMessage.success(targetStatus === 'enabled' ? '用户已启用' : '用户已禁用')
 }
 
 async function resetPassword(row: SysUser) {
   await ElMessageBox.confirm(`确认重置 ${row.real_name} 的密码为默认值？`, '确认重置')
   await store.updatePassword(row.id, 'InitPass123')
+  ElMessage.success('密码已重置为 InitPass123')
 }
 
 async function remove(row: SysUser) {
   await ElMessageBox.confirm(`确认删除用户 ${row.real_name}？`, '确认删除', { type: 'warning' })
   await store.removeUser(row.id)
+  ElMessage.success('用户已删除')
 }
 </script>
 
@@ -164,10 +188,44 @@ async function remove(row: SysUser) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .page-header h2 {
   margin: 0;
+  font-size: 24px;
+}
+
+.page-header p {
+  margin: 4px 0 0;
+  color: #66758c;
+  font-size: 13px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-input {
+  width: 260px;
+}
+
+.user-table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .search-input {
+    width: 100%;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
 }
 </style>
