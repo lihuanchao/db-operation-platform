@@ -1,7 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { canAccessPath } from '@/auth/access'
+import { pinia } from '@/stores'
+import { useAuthStore } from '@/stores/auth'
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { public: true }
+  },
   {
     path: '/',
     redirect: '/optimization-tasks'
@@ -50,12 +59,52 @@ const routes: RouteRecordRaw[] = [
     path: '/execution-logs',
     name: 'ExecutionLogList',
     component: () => import('@/views/ExecutionLogList.vue')
+  },
+  {
+    path: '/users',
+    name: 'UserManagement',
+    component: () => import('@/views/UserManagement.vue')
+  },
+  {
+    path: '/roles',
+    name: 'RoleManagement',
+    component: () => import('@/views/RoleManagement.vue')
+  },
+  {
+    path: '/permissions',
+    name: 'PermissionManagement',
+    component: () => import('@/views/PermissionManagement.vue')
   }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach(async (to) => {
+  const authStore = useAuthStore(pinia)
+
+  if (!authStore.initialized) {
+    await authStore.restore()
+  }
+
+  if (to.meta.public) {
+    if (authStore.isAuthenticated) {
+      return authStore.homePath
+    }
+    return true
+  }
+
+  if (!authStore.isAuthenticated) {
+    return '/login'
+  }
+
+  if (!canAccessPath(authStore.roleCode, to.path)) {
+    return authStore.homePath
+  }
+
+  return true
 })
 
 export default router

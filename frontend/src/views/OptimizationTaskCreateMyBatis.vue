@@ -30,7 +30,7 @@
                 style="width: 100%"
               >
                 <el-option
-                  v-for="conn in connectionList"
+                  v-for="conn in authStore.authorizedConnections"
                   :key="conn.id"
                   :label="`${conn.connection_name} (${conn.host}:${conn.port})`"
                   :value="conn.id"
@@ -73,14 +73,13 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import AppLayout from '@/components/Layout/AppLayout.vue'
-import { getConnectionList } from '@/api/dbConnection'
 import { useOptimizationTaskStore } from '@/stores/optimizationTask'
-import type { DbConnection } from '@/types'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const store = useOptimizationTaskStore()
+const authStore = useAuthStore()
 const formRef = ref<FormInstance>()
-const connectionList = ref<DbConnection[]>([])
 
 const formData = ref({
   db_connection_id: undefined as number | undefined,
@@ -95,9 +94,8 @@ const rules = {
 }
 
 onMounted(async () => {
-  const res = await getConnectionList({ page: 1, per_page: 200 })
-  if (res.data) {
-    connectionList.value = res.data.items.filter(item => item.is_enabled)
+  if (!authStore.authorizedConnections.length) {
+    await authStore.fetchAuthorizedConnections()
   }
 })
 

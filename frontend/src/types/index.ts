@@ -37,6 +37,53 @@ export interface ApiResponse<T = any> {
   error?: string
 }
 
+export type RoleCode = 'admin' | 'user'
+
+export interface AuthUser {
+  id: number
+  employee_no: string
+  real_name: string
+  department: string
+  role_code: RoleCode
+  status: 'enabled' | 'disabled'
+  last_login_at?: string | null
+  last_login_ip?: string | null
+}
+
+export interface AuthMenuItem {
+  path: string
+  label: string
+}
+
+export interface AuthPayload {
+  user: AuthUser
+  menus: AuthMenuItem[]
+}
+
+export interface LoginPayload {
+  employee_no: string
+  password: string
+}
+
+export interface SysUser {
+  id: number
+  employee_no: string
+  real_name: string
+  department: string
+  role_code: RoleCode
+  status: 'enabled' | 'disabled'
+  last_login_at?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface RoleSpec {
+  code: RoleCode
+  name: string
+  pages: string[]
+  data_scope: string
+}
+
 export type OptimizationTaskType = 'sql' | 'mybatis'
 export type OptimizationTaskStatus = 'queued' | 'running' | 'completed' | 'failed'
 
