@@ -1,13 +1,16 @@
 <template>
   <div class="sidebar" :class="{ 'is-collapsed': layoutStore.collapsed }">
     <el-menu
+      ref="menuRef"
       :collapse="layoutStore.collapsed"
       :default-active="activeMenu"
-      :default-openeds="['archive', 'admin']"
+      :default-openeds="layoutStore.openedMenus"
       class="sidebar-menu"
       background-color="#343a40"
       text-color="#fff"
       active-text-color="#fff"
+      @open="handleMenuOpen"
+      @close="handleMenuClose"
     >
       <el-menu-item
         v-if="hasMenu('/optimization-tasks')"
@@ -27,16 +30,6 @@
       >
         <el-icon><TrendCharts /></el-icon>
         <span>慢SQL管理</span>
-      </el-menu-item>
-
-      <el-menu-item
-        v-if="hasMenu('/connections')"
-        index="/connections"
-        data-path="/connections"
-        @click="navigate('/connections')"
-      >
-        <el-icon><Connection /></el-icon>
-        <span>连接管理</span>
       </el-menu-item>
 
       <el-sub-menu v-if="showArchive" index="archive">
@@ -97,12 +90,22 @@
           <span>权限管理</span>
         </el-menu-item>
       </el-sub-menu>
+
+      <el-menu-item
+        v-if="hasMenu('/connections')"
+        index="/connections"
+        data-path="/connections"
+        @click="navigate('/connections')"
+      >
+        <el-icon><Connection /></el-icon>
+        <span>连接管理</span>
+      </el-menu-item>
     </el-menu>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Connection,
@@ -123,6 +126,8 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const layoutStore = useLayoutStore()
+const menuRef = ref<{ close?: (index: string) => void } | null>(null)
+let suppressAutoOpenUntil = 0
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/optimization-tasks')) return '/optimization-tasks'
@@ -144,6 +149,34 @@ function hasMenu(path: string) {
 
 function navigate(path: string) {
   router.push(path)
+}
+
+watch(
+  () => layoutStore.collapsed,
+  async (collapsed) => {
+    if (collapsed) return
+    suppressAutoOpenUntil = Date.now() + 400
+    await nextTick()
+    layoutStore.setOpenedMenus([])
+    menuRef.value?.close?.('archive')
+    menuRef.value?.close?.('admin')
+    setTimeout(() => {
+      menuRef.value?.close?.('archive')
+      menuRef.value?.close?.('admin')
+    }, 220)
+  }
+)
+
+function handleMenuOpen(index: string) {
+  if (Date.now() < suppressAutoOpenUntil) {
+    menuRef.value?.close?.(index)
+    return
+  }
+  layoutStore.setOpenedMenus([...layoutStore.openedMenus, index])
+}
+
+function handleMenuClose(index: string) {
+  layoutStore.setOpenedMenus(layoutStore.openedMenus.filter((item) => item !== index))
 }
 </script>
 

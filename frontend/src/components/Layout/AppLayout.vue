@@ -321,9 +321,15 @@ watch(
   align-items: center;
   gap: 10px;
   overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
   background: rgba(248, 250, 252, 0.96);
   border-bottom: 1px solid #d8e0ea;
   transition: left 0.2s ease;
+}
+
+.layout-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .layout-tab {

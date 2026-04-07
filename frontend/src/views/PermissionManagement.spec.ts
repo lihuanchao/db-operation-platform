@@ -158,7 +158,7 @@ describe('PermissionManagement', () => {
     expect(wrapper.find('button.permission-save').attributes('disabled')).toBeDefined()
   })
 
-  it('selects and clears only the filtered connections before saving', async () => {
+  it('toggles connection selection in list rows and saves permissions', async () => {
     const { wrapper, permissionStore } = mountView()
     await flushPromises()
 
@@ -169,18 +169,25 @@ describe('PermissionManagement', () => {
     await inputs[1].setValue('报表库')
     await flushPromises()
 
-    const actionButtons = wrapper.findAll('.toolbar-button')
-    await actionButtons[0].trigger('click')
+    await wrapper.find('.connection-card').trigger('click')
     expect(permissionStore.selectedConnectionIds).toEqual([11, 12])
-
-    await actionButtons[1].trigger('click')
-    expect(permissionStore.selectedConnectionIds).toEqual([11])
 
     await wrapper.find('button.permission-save').trigger('click')
     await flushPromises()
 
-    expect(saveUserConnectionPermissionsMock).toHaveBeenCalledWith(1, [11])
+    expect(saveUserConnectionPermissionsMock).toHaveBeenCalledWith(1, [11, 12])
     expect(successSpy).toHaveBeenCalledWith('授权已保存')
+  })
+
+  it('renders host column in connection authorization list', async () => {
+    const { wrapper } = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('.user-card')[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('主机地址')
+    expect(wrapper.text()).toContain('10.0.0.11')
   })
 
   it('renders search-specific empty states for users and connections', async () => {

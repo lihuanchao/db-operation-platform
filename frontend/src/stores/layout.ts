@@ -11,6 +11,7 @@ type LayoutStorageState = {
   collapsed: boolean
   tabs: LayoutTab[]
   activePath: string
+  openedMenus?: string[]
 }
 
 export const HOME_TAB: LayoutTab = {
@@ -74,6 +75,7 @@ export const useLayoutStore = defineStore('layout', () => {
   const collapsed = ref(false)
   const tabs = ref<LayoutTab[]>([cloneTab(HOME_TAB)])
   const activePath = ref(HOME_TAB.path)
+  const openedMenus = ref<string[]>([])
 
   function persistToStorage() {
     try {
@@ -82,7 +84,8 @@ export const useLayoutStore = defineStore('layout', () => {
         JSON.stringify({
           collapsed: collapsed.value,
           tabs: tabs.value,
-          activePath: activePath.value
+          activePath: activePath.value,
+          openedMenus: openedMenus.value
         })
       )
     } catch {
@@ -94,6 +97,7 @@ export const useLayoutStore = defineStore('layout', () => {
     collapsed.value = false
     tabs.value = [cloneTab(HOME_TAB)]
     activePath.value = HOME_TAB.path
+    openedMenus.value = []
     persistToStorage()
   }
 
@@ -114,6 +118,9 @@ export const useLayoutStore = defineStore('layout', () => {
       collapsed.value = parsedState.collapsed
       tabs.value = parsedState.tabs.map(cloneTab)
       activePath.value = parsedState.activePath
+      openedMenus.value = Array.isArray(parsedState.openedMenus)
+        ? parsedState.openedMenus.filter((item): item is string => typeof item === 'string')
+        : []
     } catch {
       resetToHomeTab()
     }
@@ -176,17 +183,28 @@ export const useLayoutStore = defineStore('layout', () => {
     persistToStorage()
   }
 
+  function setOpenedMenus(menus: string[]) {
+    openedMenus.value = Array.from(
+      new Set(
+        menus.filter((item) => item === 'archive' || item === 'admin')
+      )
+    )
+    persistToStorage()
+  }
+
   hydrateFromStorage()
 
   return {
     collapsed,
     tabs,
     activePath,
+    openedMenus,
     toggleCollapsed,
     activateTab,
     openTab,
     syncByRoute,
     closeTab,
+    setOpenedMenus,
     hydrateFromStorage,
     persistToStorage,
     resetToHomeTab
