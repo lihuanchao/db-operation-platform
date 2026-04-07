@@ -1,0 +1,116 @@
+<h2>SQL 优化建议页面组风格方向</h2>
+<p class="subtitle">覆盖任务列表、创建 SQL、创建 XML、任务详情 4 个页面。先定整体视觉语言，再进入细化。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A · 双栏工作台</div>
+        <div class="mockup-body" style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:12px;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="height:46px;border-radius:12px;background:#e8f3fb;border:1px solid #cfe2f2;"></div>
+            <div style="height:110px;border-radius:14px;background:#fff;border:1px solid #d8e6f2;"></div>
+            <div style="height:132px;border-radius:14px;background:#fff;border:1px solid #d8e6f2;"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="height:82px;border-radius:14px;background:#f3f9fd;border:1px solid #d8e6f2;"></div>
+            <div style="height:206px;border-radius:14px;background:#fff;border:1px solid #d8e6f2;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>双栏工作台</h3>
+      <p>和权限管理页同一体系。左侧流程与输入，右侧摘要、状态、辅助说明，页面更稳、更专业。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>风格最统一</li>
+            <li>表单和详情页层次最清楚</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>列表页会比现在更强调卡片与摘要</li>
+          </ul>
+        </div>
+      </div>
+      <p><strong>推荐：</strong>最适合你当前系统的浅色企业后台方向。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B · 分析报告台</div>
+        <div class="mockup-body" style="display:flex;flex-direction:column;gap:12px;">
+          <div style="height:66px;border-radius:14px;background:#eef6ff;border:1px solid #d6e7f7;"></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            <div style="height:82px;border-radius:14px;background:#fff;border:1px solid #d8e6f2;"></div>
+            <div style="height:82px;border-radius:14px;background:#fff;border:1px solid #d8e6f2;"></div>
+            <div style="height:82px;border-radius:14px;background:#fff;border:1px solid #d8e6f2;"></div>
+          </div>
+          <div style="height:176px;border-radius:14px;background:#fff;border:1px solid #d8e6f2;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>分析报告台</h3>
+      <p>更像“优化结果中心”，强调任务状态、结论摘要、结果阅读体验，详情页会更像审阅报告。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>结果页观感最好</li>
+            <li>更适合展示优化结论</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>创建页会偏“展示感”而不是操作感</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C · 数据控制台</div>
+        <div class="mockup-body" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+            <div style="height:62px;border-radius:12px;background:#f7fbfd;border:1px solid #d8e6f2;"></div>
+            <div style="height:62px;border-radius:12px;background:#f7fbfd;border:1px solid #d8e6f2;"></div>
+            <div style="height:62px;border-radius:12px;background:#f7fbfd;border:1px solid #d8e6f2;"></div>
+            <div style="height:62px;border-radius:12px;background:#f7fbfd;border:1px solid #d8e6f2;"></div>
+          </div>
+          <div style="height:210px;border-radius:14px;background:#fff;border:1px solid #d8e6f2;"></div>
+          <div style="height:70px;border-radius:14px;background:#fff;border:1px solid #d8e6f2;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>数据控制台</h3>
+      <p>信息密度最高，列表页会更像监控台，适合看状态、筛选和批量处理，但视觉会更硬一些。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>适合高频运维视角</li>
+            <li>列表页效率高</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>与当前登录页/权限页的简洁质感不完全一致</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

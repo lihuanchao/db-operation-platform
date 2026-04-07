@@ -1,11 +1,8 @@
 <template>
   <AppLayout>
     <div class="page-header">
-      <div class="header-main">
-        <h2>创建 ORM XML 优化任务</h2>
-        <p>输入 MyBatis XML 片段，系统会自动提取查询并进行索引与写法优化。</p>
-      </div>
-      <el-button class="ghost-btn" @click="goBack">返回列表</el-button>
+      <h2>创建 ORM XML 优化任务</h2>
+      <el-button class="ghost-btn back-btn" @click="goBack">返回列表</el-button>
     </div>
 
     <el-card shadow="never" class="form-shell">
@@ -45,7 +42,7 @@
           </el-col>
         </el-row>
 
-        <el-form-item label="MyBatis XML 内容" prop="xml_text" class="sql-area-item">
+        <el-form-item label="MyBatis XML 内容" prop="xml_text" class="content-area-item">
           <el-input
             v-model="formData.xml_text"
             type="textarea"
@@ -58,7 +55,12 @@
 
         <div class="action-row">
           <el-button class="ghost-btn" @click="goBack">取消</el-button>
-          <el-button type="primary" :loading="store.submitLoading" @click="handleSubmit">
+          <el-button
+            type="primary"
+            class="submit-btn"
+            :loading="store.submitLoading"
+            @click="handleSubmit"
+          >
             开始优化
           </el-button>
         </div>
@@ -103,15 +105,23 @@ function goBack() {
   router.push('/optimization-tasks')
 }
 
+function hasRequiredFields() {
+  return Boolean(
+    formData.value.db_connection_id &&
+      formData.value.database_name.trim() &&
+      formData.value.xml_text.trim()
+  )
+}
+
 async function handleSubmit() {
   if (!formRef.value) return
   const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!valid || !hasRequiredFields()) return
 
   const task = await store.createMyBatisTask({
     db_connection_id: formData.value.db_connection_id as number,
-    database_name: formData.value.database_name,
-    xml_text: formData.value.xml_text
+    database_name: formData.value.database_name.trim(),
+    xml_text: formData.value.xml_text.trim()
   })
 
   if (task?.id) {
@@ -122,62 +132,4 @@ async function handleSubmit() {
 }
 </script>
 
-<style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.header-main h2 {
-  margin: 0;
-  color: #1f2d3d;
-  letter-spacing: 0.3px;
-}
-
-.header-main p {
-  margin: 8px 0 0;
-  color: #637381;
-  font-size: 13px;
-}
-
-.form-shell {
-  border: 1px solid #e8edf4;
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at left top, rgba(34, 197, 94, 0.08), transparent 42%),
-    #ffffff;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #22324a;
-}
-
-.sql-area-item :deep(.el-textarea__inner) {
-  font-family: 'Consolas', 'Monaco', 'SFMono-Regular', monospace;
-  line-height: 1.6;
-  border-radius: 10px;
-}
-
-.text-counter {
-  margin-top: 8px;
-  text-align: right;
-  font-size: 12px;
-  color: #8b95a7;
-}
-
-.action-row {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.ghost-btn {
-  border-color: #d7deeb;
-  color: #42526e;
-}
-</style>
+<style scoped src="../styles/task-create-workspace.css"></style>

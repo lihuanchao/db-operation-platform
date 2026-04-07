@@ -1,0 +1,148 @@
+<h2>权限管理页布局方向</h2>
+<p class="subtitle">请选择更符合你这个系统气质的一种。重点看信息层级、授权效率和后台管理感。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 双栏授权台</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:0.95fr 1.25fr;gap:14px;min-height:340px;">
+            <div style="border:1px solid #cfe1ef;border-radius:14px;background:#f8fcff;padding:14px;">
+              <div style="font-size:12px;color:#527089;margin-bottom:8px;">用户列表</div>
+              <div class="mock-input">搜索姓名/工号</div>
+              <div style="margin-top:10px;display:grid;gap:8px;">
+                <div style="padding:10px 12px;border-radius:12px;background:#e8f4fb;border:1px solid #97c9e2;">
+                  <div style="font-weight:600;">张三</div>
+                  <div style="font-size:12px;color:#56748c;">U1001 · 普通用户</div>
+                </div>
+                <div class="placeholder" style="min-height:auto;">李四 · 普通用户</div>
+                <div class="placeholder" style="min-height:auto;">管理员账号</div>
+              </div>
+            </div>
+            <div style="border:1px solid #cfe1ef;border-radius:14px;background:#ffffff;padding:14px;">
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+                <div>
+                  <div style="font-size:12px;color:#527089;">连接授权</div>
+                  <div style="font-weight:700;margin-top:4px;">当前用户：张三（U1001）</div>
+                </div>
+                <div class="mock-input" style="width:180px;">搜索连接/IP</div>
+              </div>
+              <div style="margin-top:12px;display:grid;gap:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid #d8e7f1;border-radius:12px;background:#f9fcff;">
+                  <div>
+                    <div style="font-weight:600;">订单库</div>
+                    <div style="font-size:12px;color:#5d778d;">10.1.1.11</div>
+                  </div>
+                  <div style="width:16px;height:16px;border-radius:5px;background:#0891b2;"></div>
+                </div>
+                <div class="placeholder" style="min-height:auto;">支付库 · 10.1.1.12</div>
+                <div class="placeholder" style="min-height:auto;">分析库 · 10.1.1.13</div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+                <button class="mock-button">保存授权</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>双栏授权台</h3>
+      <p>左边选人，右边直接分配连接。符合后台高频操作路径，学习成本最低。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 步骤式授权流</div>
+        <div class="mockup-body">
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <div style="flex:1;padding:10px;border-radius:999px;background:#0891b2;color:#fff;text-align:center;font-size:12px;">1 选择用户</div>
+            <div style="flex:1;padding:10px;border-radius:999px;background:#dff2f8;color:#2f6072;text-align:center;font-size:12px;">2 勾选连接</div>
+            <div style="flex:1;padding:10px;border-radius:999px;background:#dff2f8;color:#2f6072;text-align:center;font-size:12px;">3 确认保存</div>
+          </div>
+          <div style="border:1px solid #cfe1ef;border-radius:14px;background:#fff;padding:14px;min-height:286px;">
+            <div style="font-weight:700;">选择授权对象</div>
+            <div class="mock-input" style="margin-top:10px;">搜索姓名/工号</div>
+            <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div style="padding:12px;border:1px solid #97c9e2;border-radius:12px;background:#eef8fc;">
+                <div style="font-weight:600;">张三</div>
+                <div style="font-size:12px;color:#58748b;">研发一组</div>
+              </div>
+              <div class="placeholder" style="min-height:auto;">李四</div>
+              <div class="placeholder" style="min-height:auto;">王五</div>
+              <div class="placeholder" style="min-height:auto;">赵六</div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+              <button class="mock-button">下一步</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>步骤式授权流</h3>
+      <p>更强引导感，适合复杂授权流程，但对你当前的单一连接授权任务来说略显重。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. 矩阵式权限面板</div>
+        <div class="mockup-body">
+          <div style="border:1px solid #cfe1ef;border-radius:14px;background:#fff;padding:14px;min-height:340px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;">
+              <div>
+                <div style="font-size:12px;color:#527089;">用户 x 连接</div>
+                <div style="font-weight:700;">权限矩阵</div>
+              </div>
+              <div class="mock-input" style="width:180px;">搜索用户/连接</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:8px;font-size:12px;">
+              <div style="padding:10px 8px;font-weight:700;color:#47657b;">用户</div>
+              <div style="padding:10px 8px;font-weight:700;color:#47657b;">订单库</div>
+              <div style="padding:10px 8px;font-weight:700;color:#47657b;">支付库</div>
+              <div style="padding:10px 8px;font-weight:700;color:#47657b;">分析库</div>
+              <div class="placeholder" style="min-height:auto;">张三</div>
+              <div class="placeholder" style="min-height:auto;background:#e8f7fb;">已授权</div>
+              <div class="placeholder" style="min-height:auto;">未授权</div>
+              <div class="placeholder" style="min-height:auto;background:#e8f7fb;">已授权</div>
+              <div class="placeholder" style="min-height:auto;">李四</div>
+              <div class="placeholder" style="min-height:auto;">未授权</div>
+              <div class="placeholder" style="min-height:auto;background:#e8f7fb;">已授权</div>
+              <div class="placeholder" style="min-height:auto;">未授权</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>矩阵式权限面板</h3>
+      <p>适合大规模权限盘点，但你现在的场景字段少、用户少，容易显得重且移动端较差。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>我推荐 A</h4>
+      <ul>
+        <li>最贴合当前“选用户 -> 配连接 -> 保存”的真实路径</li>
+        <li>改造成本最低，不需要改数据结构</li>
+        <li>可以进一步做成更强的选中态、统计标签和批量提示</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>A 需要补的细节</h4>
+      <ul>
+        <li>用户卡片需要更明显的当前选中态</li>
+        <li>授权列表需要支持滚动、空态和已授权数量提示</li>
+        <li>移动端要从双栏自动切成上下结构</li>
+      </ul>
+    </div>
+  </div>
+</div>

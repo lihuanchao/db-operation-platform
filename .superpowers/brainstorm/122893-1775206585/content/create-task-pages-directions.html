@@ -1,0 +1,66 @@
+<h2>创建任务页面优化方向</h2>
+<p class="subtitle">统一优化“创建 SQL 优化任务”和“创建 ORM XML 优化任务”两页。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A · 统一单卡片工作区（推荐）</div>
+        <div class="mockup-body" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="height:44px;border-radius:12px;background:#f4f8fc;border:1px solid #d8e5f2;"></div>
+          <div style="height:74px;border-radius:14px;background:#ffffff;border:1px solid #d8e5f2;"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div style="height:64px;border-radius:12px;background:#ffffff;border:1px solid #d8e5f2;"></div>
+            <div style="height:64px;border-radius:12px;background:#ffffff;border:1px solid #d8e5f2;"></div>
+          </div>
+          <div style="height:180px;border-radius:14px;background:#ffffff;border:1px solid #d8e5f2;"></div>
+          <div style="height:46px;border-radius:12px;background:#ffffff;border:1px solid #d8e5f2;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>统一单卡片工作区</h3>
+      <p>两页用同一骨架：头部 + 配置区 + 编辑区 + 操作区。视觉最干净，改造成本最低，和你当前列表页风格最一致。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B · 左编辑右摘要</div>
+        <div class="mockup-body" style="display:grid;grid-template-columns:1.25fr 0.75fr;gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="height:76px;border-radius:12px;background:#ffffff;border:1px solid #d8e5f2;"></div>
+            <div style="height:220px;border-radius:14px;background:#ffffff;border:1px solid #d8e5f2;"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="height:72px;border-radius:12px;background:#f7fbff;border:1px solid #d8e5f2;"></div>
+            <div style="height:72px;border-radius:12px;background:#f7fbff;border:1px solid #d8e5f2;"></div>
+            <div style="height:72px;border-radius:12px;background:#f7fbff;border:1px solid #d8e5f2;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>左编辑右摘要</h3>
+      <p>编辑区占主屏，右侧展示连接、库名、字符数、提交提示。更有“工作台感”，但布局复杂度更高。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C · 编辑器优先极简页</div>
+        <div class="mockup-body" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="height:42px;border-radius:10px;background:#ffffff;border:1px solid #d8e5f2;"></div>
+          <div style="height:238px;border-radius:14px;background:#ffffff;border:1px solid #d8e5f2;"></div>
+          <div style="height:74px;border-radius:12px;background:#f7fbff;border:1px solid #d8e5f2;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>编辑器优先极简页</h3>
+      <p>把 SQL/XML 输入区作为绝对主角，连接和库名收敛成紧凑字段。最简洁，但对新用户提示会更少。</p>
+    </div>
+  </div>
+</div>
