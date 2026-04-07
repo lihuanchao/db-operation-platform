@@ -115,12 +115,12 @@ describe('Sidebar', () => {
 
     const text = wrapper.text()
 
-    expect(text).toContain('SQL优化建议')
+    expect(text).toContain('SQL智能建议')
     expect(text).toContain('归档管理')
     expect(text).toContain('归档任务')
     expect(text).toContain('系统管理')
     expect(text).toContain('权限管理')
-    expect(text).not.toContain('慢SQL列表')
+    expect(text).not.toContain('慢SQL管理')
     expect(text).not.toContain('连接管理')
   })
 

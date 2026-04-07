@@ -179,7 +179,7 @@ async function handleSubmit() {
 }
 
 .login-card {
-  border-radius: 22px;
+  border-radius: 8px;
   border: 1px solid rgba(14, 116, 144, 0.25);
   background: #ffffff;
   box-shadow: 0 24px 54px rgba(12, 74, 110, 0.16);
@@ -231,7 +231,7 @@ async function handleSubmit() {
 }
 
 :deep(.el-input__wrapper) {
-  border-radius: 12px;
+  border-radius: 6px;
   min-height: 42px;
   box-shadow: 0 0 0 1px rgba(14, 116, 144, 0.18) inset;
   transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -261,7 +261,7 @@ async function handleSubmit() {
 .submit-btn {
   width: 100%;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 6px;
   font-weight: 600;
   font-size: 15px;
   letter-spacing: 0.02em;
@@ -323,7 +323,7 @@ async function handleSubmit() {
   }
 
   .login-card {
-    border-radius: 16px;
+    border-radius: 8px;
   }
 
   :deep(.login-card .el-card__body) {

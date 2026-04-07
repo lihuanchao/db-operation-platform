@@ -80,6 +80,19 @@ describe('AppLayout', () => {
     expect(wrapper.get('[data-testid="user-name"]').text()).toBe('系统管理员')
   })
 
+  it('falls back to employee number when real name is a role label', async () => {
+    const { wrapper, authStore } = await mountLayout()
+
+    authStore.user = {
+      ...authStore.user!,
+      employee_no: 'U2001',
+      real_name: '普通用户'
+    }
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="user-name"]').text()).toBe('U2001')
+  })
+
   it('toggles layoutStore.collapsed after clicking the collapse control', async () => {
     const { wrapper, layoutStore } = await mountLayout()
 
@@ -94,7 +107,7 @@ describe('AppLayout', () => {
     const { wrapper, router, layoutStore } = await mountLayout()
     const pushSpy = vi.spyOn(router, 'push')
 
-    layoutStore.openTab('/slow-sqls', '慢SQL列表')
+    layoutStore.openTab('/slow-sqls', '慢SQL管理')
     await flushPromises()
 
     await wrapper.get('[data-tab-path="/slow-sqls"]').trigger('click')
@@ -106,7 +119,7 @@ describe('AppLayout', () => {
     const { wrapper, router, layoutStore } = await mountLayout('/slow-sqls')
     const pushSpy = vi.spyOn(router, 'push')
 
-    layoutStore.openTab('/slow-sqls', '慢SQL列表')
+    layoutStore.openTab('/slow-sqls', '慢SQL管理')
     layoutStore.activateTab('/slow-sqls')
     await flushPromises()
 
@@ -122,7 +135,7 @@ describe('AppLayout', () => {
     const { wrapper, router, layoutStore } = await mountLayout()
     const pushSpy = vi.spyOn(router, 'push')
 
-    layoutStore.openTab('/slow-sqls', '慢SQL列表')
+    layoutStore.openTab('/slow-sqls', '慢SQL管理')
     layoutStore.activateTab(HOME_TAB.path)
     await flushPromises()
 
@@ -138,7 +151,7 @@ describe('AppLayout', () => {
     const { wrapper, router, layoutStore } = await mountLayout('/slow-sqls')
     const pushSpy = vi.spyOn(router, 'push')
 
-    layoutStore.openTab('/slow-sqls', '慢SQL列表')
+    layoutStore.openTab('/slow-sqls', '慢SQL管理')
     layoutStore.activateTab('/slow-sqls')
     await flushPromises()
 
@@ -156,7 +169,7 @@ describe('AppLayout', () => {
     const replaceSpy = vi.spyOn(router, 'replace')
     const logoutSpy = vi.spyOn(authStore, 'logout').mockResolvedValue()
 
-    layoutStore.openTab('/slow-sqls', '慢SQL列表')
+    layoutStore.openTab('/slow-sqls', '慢SQL管理')
     layoutStore.activateTab('/slow-sqls')
     await flushPromises()
 

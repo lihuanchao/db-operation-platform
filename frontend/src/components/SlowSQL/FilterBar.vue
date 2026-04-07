@@ -52,7 +52,7 @@
           value-format="YYYY-MM-DDTHH:mm"
         />
       </el-form-item>
-      <el-form-item>
+      <el-form-item class="filter-actions">
         <el-button type="primary" @click="handleSearch">
           <el-icon><Search /></el-icon>
           筛选
@@ -111,5 +111,21 @@ function handleReset() {
 
 .filter-form {
   margin-bottom: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.filter-form :deep(.el-form-item) {
+  margin-right: 0;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.filter-actions {
+  margin-left: auto;
 }
 </style>

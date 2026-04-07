@@ -15,7 +15,7 @@ type LayoutStorageState = {
 
 export const HOME_TAB: LayoutTab = {
   path: '/optimization-tasks',
-  title: 'SQL优化建议',
+  title: 'SQL智能建议',
   closable: false
 }
 

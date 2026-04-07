@@ -10,8 +10,8 @@ from models.sys_user import SysUser
 
 class AuthService:
     ADMIN_MENU = [
-        {'path': '/optimization-tasks', 'label': 'SQL优化建议'},
-        {'path': '/slow-sqls', 'label': '慢SQL列表'},
+        {'path': '/optimization-tasks', 'label': 'SQL智能建议'},
+        {'path': '/slow-sqls', 'label': '慢SQL管理'},
         {'path': '/connections', 'label': '连接管理'},
         {'path': '/archive-tasks', 'label': '归档任务'},
         {'path': '/execution-logs', 'label': '执行日志'},
@@ -20,8 +20,8 @@ class AuthService:
         {'path': '/permissions', 'label': '权限管理'},
     ]
     USER_MENU = [
-        {'path': '/optimization-tasks', 'label': 'SQL优化建议'},
-        {'path': '/slow-sqls', 'label': '慢SQL列表'},
+        {'path': '/optimization-tasks', 'label': 'SQL智能建议'},
+        {'path': '/slow-sqls', 'label': '慢SQL管理'},
     ]
 
     @staticmethod

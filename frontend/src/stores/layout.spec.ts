@@ -26,7 +26,7 @@ describe('layout store', () => {
 
   it('does not duplicate tabs for the same path and only activates the existing tab', () => {
     const store = useLayoutStore()
-    const tab = { path: '/slow-sqls', title: '慢SQL列表', closable: true }
+    const tab = { path: '/slow-sqls', title: '慢SQL管理', closable: true }
 
     store.openTab(tab.path, tab.title, tab.closable)
     store.openTab(tab.path, '其他标题', false)

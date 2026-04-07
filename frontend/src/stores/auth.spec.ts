@@ -14,8 +14,8 @@ vi.mock('@/api/auth', () => ({
         status: 'enabled'
       },
       menus: [
-        { path: '/optimization-tasks', label: 'SQL优化建议' },
-        { path: '/slow-sqls', label: '慢SQL列表' }
+        { path: '/optimization-tasks', label: 'SQL智能建议' },
+        { path: '/slow-sqls', label: '慢SQL管理' }
       ]
     }
   })),

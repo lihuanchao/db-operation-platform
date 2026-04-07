@@ -1,9 +1,5 @@
 <template>
   <div class="sidebar" :class="{ 'is-collapsed': layoutStore.collapsed }">
-    <div class="sidebar-header">
-      <h5 v-show="!layoutStore.collapsed">数据库运维</h5>
-    </div>
-
     <el-menu
       :collapse="layoutStore.collapsed"
       :default-active="activeMenu"
@@ -20,7 +16,7 @@
         @click="navigate('/optimization-tasks')"
       >
         <el-icon><Opportunity /></el-icon>
-        <span>SQL优化建议</span>
+        <span>SQL智能建议</span>
       </el-menu-item>
 
       <el-menu-item
@@ -30,7 +26,7 @@
         @click="navigate('/slow-sqls')"
       >
         <el-icon><TrendCharts /></el-icon>
-        <span>慢SQL列表</span>
+        <span>慢SQL管理</span>
       </el-menu-item>
 
       <el-menu-item
@@ -155,27 +151,7 @@ function navigate(path: string) {
 .sidebar {
   min-height: 100vh;
   background-color: #343a40;
-  padding-top: 16px;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 32px;
-  padding: 0 20px 12px;
-}
-
-.sidebar-header h5 {
-  color: #fff;
-  margin: 0;
-  font-size: 16px;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.sidebar.is-collapsed .sidebar-header {
-  padding-inline: 0;
+  padding-top: 10px;
 }
 
 .sidebar-menu {

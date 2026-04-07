@@ -18,7 +18,10 @@
           :aria-label="layoutStore.collapsed ? '展开侧边栏' : '收起侧边栏'"
           @click="layoutStore.toggleCollapsed()"
         >
-          <span>{{ layoutStore.collapsed ? '展开' : '收起' }}</span>
+          <el-icon class="collapse-icon">
+            <Expand v-if="layoutStore.collapsed" />
+            <Fold v-else />
+          </el-icon>
         </button>
       </div>
 
@@ -92,6 +95,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Expand, Fold } from '@element-plus/icons-vue'
 import { MENU_ITEMS } from '@/auth/access'
 import sinotrukLogo from '@/assets/sinotruk-logo.png'
 import Sidebar from './Sidebar.vue'
@@ -106,7 +110,23 @@ const authStore = useAuthStore()
 const userMenuOpen = ref(false)
 
 const asideWidth = computed(() => (layoutStore.collapsed ? '64px' : '220px'))
-const userName = computed(() => authStore.user?.real_name || '未登录')
+const ROLE_LABELS = new Set(['管理员', '普通用户'])
+
+const userName = computed(() => {
+  const realName = (authStore.user?.real_name || '').trim()
+  const employeeNo = (authStore.user?.employee_no || '').trim()
+
+  // 右上角只展示“用户名”，若 real_name 是角色词则回退显示工号。
+  if (realName && !ROLE_LABELS.has(realName)) {
+    return realName
+  }
+
+  if (employeeNo) {
+    return employeeNo
+  }
+
+  return '未登录'
+})
 
 function resolveTabTitle(path: string) {
   const matchedMenu = MENU_ITEMS.find((item) => {
@@ -216,13 +236,16 @@ watch(
 }
 
 .collapse-toggle {
+  width: 36px;
   height: 36px;
-  padding: 0 14px;
-  border-radius: 10px;
+  padding: 0;
+  border-radius: 6px;
   background: #eef4fb;
   color: #204872;
-  font-size: 13px;
-  font-weight: 600;
+}
+
+.collapse-icon {
+  font-size: 16px;
 }
 
 .user-dropdown {
@@ -237,7 +260,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  border-radius: 12px;
+  border-radius: 6px;
   background: #f4f7fb;
   color: #1a2a3a;
 }
@@ -258,7 +281,7 @@ watch(
   min-width: 120px;
   padding: 8px;
   border: 1px solid #d8e0ea;
-  border-radius: 12px;
+  border-radius: 6px;
   background: #fff;
   box-shadow: 0 12px 24px rgba(16, 42, 67, 0.12);
 }
@@ -266,7 +289,7 @@ watch(
 .user-menu-item {
   width: 100%;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 4px;
   color: #a63a3a;
 }
 
@@ -312,7 +335,7 @@ watch(
   align-items: center;
   gap: 8px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 4px;
   background: #e5edf7;
   color: #4a5d73;
   cursor: pointer;
@@ -337,7 +360,7 @@ watch(
 .layout-tab-close {
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  border-radius: 4px;
   color: inherit;
   font-size: 16px;
   line-height: 1;
@@ -350,7 +373,7 @@ watch(
 .main-content {
   min-height: calc(100vh - 136px);
   padding: 24px;
-  border-radius: 20px;
+  border-radius: 8px;
   background: #fff;
   box-shadow: 0 12px 32px rgba(15, 35, 58, 0.08);
 }

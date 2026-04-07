@@ -1,14 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}慢SQL列表 - 数据库运维管理系统{% endblock %}
+{% block title %}慢SQL管理 - 数据库运维管理系统{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col">
-        <h2>慢SQL优化管理</h2>
-    </div>
-</div>
-
 {% if error_message %}
 <div class="alert alert-danger mb-4">
     <strong>错误:</strong> {{ error_message }}
@@ -21,7 +15,7 @@
         <h6 class="mb-0">筛选条件</h6>
     </div>
     <div class="card-body">
-        <form method="GET" class="row g-3">
+        <form method="GET" class="row g-3 flex-nowrap align-items-end overflow-auto">
             <div class="col-md-2">
                 <label class="form-label">主机</label>
                 <input type="text" name="host" class="form-control" value="{{ host }}" placeholder="筛选主机">
@@ -57,7 +51,7 @@
                 <label class="form-label">结束时间</label>
                 <input type="datetime-local" name="ts_max" class="form-control" value="{{ ts_max }}">
             </div>
-            <div class="col-md-12 d-flex justify-content-end">
+            <div class="col-auto d-flex">
                 <button type="submit" class="btn btn-primary me-2">
                     <i class="bi bi-search"></i> 筛选
                 </button>
@@ -175,7 +169,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">SQL优化建议</h5>
+                <h5 class="modal-title">SQL智能建议</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">

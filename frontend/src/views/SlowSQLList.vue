@@ -1,9 +1,5 @@
 <template>
   <AppLayout>
-    <div class="page-header">
-      <h2>慢SQL优化管理</h2>
-    </div>
-
     <FilterBar
       :filters="store.filters"
       @search="handleSearch"
@@ -47,14 +43,3 @@ function handlePageChange(page: number, perPage: number) {
   store.fetchList()
 }
 </script>
-
-<style scoped>
-.page-header {
-  margin-bottom: 20px;
-}
-
-.page-header h2 {
-  margin: 0;
-  color: #1e3a5f;
-}
-</style>

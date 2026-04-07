@@ -1,11 +1,5 @@
 <template>
   <AppLayout>
-    <div class="page-header">
-      <div>
-        <h2>优化任务列表</h2>
-      </div>
-    </div>
-
     <section class="entry-grid" aria-label="创建优化任务">
       <button type="button" class="entry-card entry-card--sql" @click="goToCreateSql">
         <span class="entry-card__eyebrow">SQL 工作台</span>
@@ -160,17 +154,6 @@ function statusText(status: OptimizationTaskStatus) {
 </script>
 
 <style scoped>
-.page-header {
-  margin-bottom: 18px;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 26px;
-  font-weight: 700;
-  color: #0f2a3d;
-}
-
 .entry-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -186,7 +169,7 @@ function statusText(status: OptimizationTaskStatus) {
   width: 100%;
   padding: 22px;
   border: 1px solid #d9e6f2;
-  border-radius: 20px;
+  border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 18px 40px rgba(15, 42, 61, 0.06);
   text-align: left;
@@ -219,7 +202,7 @@ function statusText(status: OptimizationTaskStatus) {
   align-items: center;
   justify-content: center;
   padding: 5px 10px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: #e8f3fb;
   color: #075985;
   font-size: 12px;
@@ -235,7 +218,7 @@ function statusText(status: OptimizationTaskStatus) {
 
 .table-card {
   border: 1px solid #d9e6f2;
-  border-radius: 20px;
+  border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 18px 40px rgba(15, 42, 61, 0.06);
 }
@@ -270,13 +253,13 @@ function statusText(status: OptimizationTaskStatus) {
   align-items: center;
   gap: 4px;
   padding: 4px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: #f3f7fb;
 }
 
 .filter-chip {
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 8px 14px;
   background: transparent;
   color: #536779;
@@ -350,7 +333,7 @@ function statusText(status: OptimizationTaskStatus) {
   justify-content: center;
   min-width: 76px;
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 700;
 }
@@ -387,7 +370,7 @@ function statusText(status: OptimizationTaskStatus) {
 }
 
 :deep(.el-table) {
-  border-radius: 16px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
