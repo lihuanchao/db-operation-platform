@@ -118,6 +118,39 @@ describe('AppLayout', () => {
     expect(layoutStore.tabs).toEqual([HOME_TAB])
   })
 
+  it('keeps the current active tab when closing an inactive tab', async () => {
+    const { wrapper, router, layoutStore } = await mountLayout()
+    const pushSpy = vi.spyOn(router, 'push')
+
+    layoutStore.openTab('/slow-sqls', '慢SQL列表')
+    layoutStore.activateTab(HOME_TAB.path)
+    await flushPromises()
+
+    await wrapper.get('[data-close-path="/slow-sqls"]').trigger('click')
+    await flushPromises()
+
+    expect(pushSpy).not.toHaveBeenCalled()
+    expect(layoutStore.activePath).toBe(HOME_TAB.path)
+    expect(layoutStore.tabs).toEqual([HOME_TAB])
+  })
+
+  it.each(['enter', 'space'])('does not reopen a tab when its close button is triggered by %s', async (key) => {
+    const { wrapper, router, layoutStore } = await mountLayout('/slow-sqls')
+    const pushSpy = vi.spyOn(router, 'push')
+
+    layoutStore.openTab('/slow-sqls', '慢SQL列表')
+    layoutStore.activateTab('/slow-sqls')
+    await flushPromises()
+
+    await wrapper.get('[data-close-path="/slow-sqls"]').trigger(`keydown.${key}`)
+    await flushPromises()
+
+    expect(pushSpy).toHaveBeenCalledTimes(1)
+    expect(pushSpy).toHaveBeenCalledWith(HOME_TAB.path)
+    expect(layoutStore.activePath).toBe(HOME_TAB.path)
+    expect(layoutStore.tabs).toEqual([HOME_TAB])
+  })
+
   it('does not render a close button for the home tab', async () => {
     const { wrapper } = await mountLayout()
 

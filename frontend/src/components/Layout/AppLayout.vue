@@ -72,6 +72,8 @@
             :data-close-path="tab.path"
             :aria-label="`关闭${tab.title}`"
             @click.stop="closeTab(tab.path)"
+            @keydown.enter.stop.prevent="closeTab(tab.path)"
+            @keydown.space.stop.prevent="closeTab(tab.path)"
           >
             ×
           </button>
@@ -124,8 +126,11 @@ async function openTab(path: string) {
 }
 
 async function closeTab(path: string) {
+  const isActiveTab = layoutStore.activePath === path
   layoutStore.closeTab(path)
-  await router.push(HOME_TAB.path)
+  if (isActiveTab) {
+    await router.push(HOME_TAB.path)
+  }
 }
 
 async function handleLogout() {
