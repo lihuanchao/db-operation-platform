@@ -51,7 +51,11 @@ function isValidState(value: unknown): value is LayoutStorageState {
     return false
   }
 
-  if (state.tabs[0].path !== HOME_TAB.path || state.tabs[0].closable !== HOME_TAB.closable) {
+  if (
+    state.tabs[0].path !== HOME_TAB.path
+    || state.tabs[0].title !== HOME_TAB.title
+    || state.tabs[0].closable !== HOME_TAB.closable
+  ) {
     return false
   }
 
@@ -129,16 +133,24 @@ export const useLayoutStore = defineStore('layout', () => {
     persistToStorage()
   }
 
-  function openTab(tab: LayoutTab) {
-    const existingTab = tabs.value.find((item) => item.path === tab.path)
+  function openTab(path: string, title: string, closable = true) {
+    const existingTab = tabs.value.find((item) => item.path === path)
     if (existingTab) {
       activePath.value = existingTab.path
       persistToStorage()
       return
     }
 
+    const tab = path === HOME_TAB.path
+      ? cloneTab(HOME_TAB)
+      : {
+          path,
+          title,
+          closable
+        }
+
     tabs.value = [...tabs.value, cloneTab(tab)]
-    activePath.value = tab.path
+    activePath.value = path
     persistToStorage()
   }
 
@@ -148,20 +160,12 @@ export const useLayoutStore = defineStore('layout', () => {
       return
     }
 
-    openTab({
-      path,
-      title,
-      closable: true
-    })
+    openTab(path, title, true)
   }
 
   function closeTab(path: string) {
-    if (path === HOME_TAB.path) {
-      return
-    }
-
     const tabIndex = tabs.value.findIndex((tab) => tab.path === path)
-    if (tabIndex === -1) {
+    if (tabIndex === -1 || !tabs.value[tabIndex].closable) {
       return
     }
 
