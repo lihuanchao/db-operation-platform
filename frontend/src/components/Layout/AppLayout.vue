@@ -120,6 +120,10 @@ function resolveTabTitle(path: string) {
   return matchedMenu?.label ?? path
 }
 
+function shouldSyncRouteToTabs(path: string) {
+  return path !== '/login'
+}
+
 async function openTab(path: string) {
   layoutStore.activateTab(path)
   await router.push(path)
@@ -143,6 +147,10 @@ async function handleLogout() {
 watch(
   () => route.path,
   (path) => {
+    if (!shouldSyncRouteToTabs(path)) {
+      return
+    }
+
     layoutStore.syncByRoute(path, resolveTabTitle(path))
   },
   { immediate: true }

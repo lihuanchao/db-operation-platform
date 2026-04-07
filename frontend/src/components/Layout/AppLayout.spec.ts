@@ -151,6 +151,26 @@ describe('AppLayout', () => {
     expect(layoutStore.tabs).toEqual([HOME_TAB])
   })
 
+  it('keeps only the home tab after logout redirects to login', async () => {
+    const { wrapper, router, layoutStore, authStore } = await mountLayout('/slow-sqls')
+    const replaceSpy = vi.spyOn(router, 'replace')
+    const logoutSpy = vi.spyOn(authStore, 'logout').mockResolvedValue()
+
+    layoutStore.openTab('/slow-sqls', '慢SQL列表')
+    layoutStore.activateTab('/slow-sqls')
+    await flushPromises()
+
+    await wrapper.get('.user-trigger').trigger('click')
+    await wrapper.get('.user-menu-item').trigger('click')
+    await flushPromises()
+
+    expect(logoutSpy).toHaveBeenCalledTimes(1)
+    expect(replaceSpy).toHaveBeenCalledWith('/login')
+    expect(layoutStore.tabs).toEqual([HOME_TAB])
+    expect(layoutStore.tabs.some((tab) => tab.path === '/login')).toBe(false)
+    expect(layoutStore.activePath).toBe(HOME_TAB.path)
+  })
+
   it('does not render a close button for the home tab', async () => {
     const { wrapper } = await mountLayout()
 
