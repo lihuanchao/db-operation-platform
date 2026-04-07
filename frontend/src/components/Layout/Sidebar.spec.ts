@@ -27,6 +27,10 @@ const ElMenuStub = defineComponent({
     collapse: {
       type: Boolean,
       default: false
+    },
+    defaultActive: {
+      type: String,
+      default: ''
     }
   },
   setup(props, { slots, attrs }) {
@@ -128,6 +132,18 @@ describe('Sidebar', () => {
     expect(pushSpy).toHaveBeenCalledWith('/slow-sqls')
   })
 
+  it('maps active menu selection for nested routes', () => {
+    routeState.path = '/slow-sql/abc'
+
+    const slowSqlSidebar = mountSidebar(['/slow-sqls']).wrapper
+    expect(slowSqlSidebar.getComponent(ElMenuStub).props('defaultActive')).toBe('/slow-sqls')
+
+    routeState.path = '/optimization-tasks/123'
+
+    const optimizationSidebar = mountSidebar(['/optimization-tasks']).wrapper
+    expect(optimizationSidebar.getComponent(ElMenuStub).props('defaultActive')).toBe('/optimization-tasks')
+  })
+
   it('passes the current layout collapsed state into ElMenu', async () => {
     const { wrapper, layoutStore } = mountSidebar(['/optimization-tasks'])
 
@@ -137,5 +153,18 @@ describe('Sidebar', () => {
     await nextTick()
 
     expect(wrapper.getComponent(ElMenuStub).props('collapse')).toBe(true)
+  })
+
+  it('navigates to the clicked menu item path for top-level and nested entries', async () => {
+    const { wrapper } = mountSidebar([
+      '/optimization-tasks',
+      '/execution-logs'
+    ])
+
+    await wrapper.get('[data-path="/optimization-tasks"]').trigger('click')
+    await wrapper.get('[data-path="/execution-logs"]').trigger('click')
+
+    expect(pushSpy).toHaveBeenNthCalledWith(1, '/optimization-tasks')
+    expect(pushSpy).toHaveBeenNthCalledWith(2, '/execution-logs')
   })
 })
