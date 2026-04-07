@@ -1,14 +1,11 @@
 <template>
-  <div class="sidebar">
+  <div class="sidebar" :class="{ 'is-collapsed': layoutStore.collapsed }">
     <div class="sidebar-header">
-      <h5>数据库运维</h5>
-      <div class="user-line">
-        <span>{{ authStore.user?.real_name || '未登录' }}</span>
-        <el-button link type="primary" @click="handleLogout">退出</el-button>
-      </div>
+      <h5 v-show="!layoutStore.collapsed">数据库运维</h5>
     </div>
 
     <el-menu
+      :collapse="layoutStore.collapsed"
       :default-active="activeMenu"
       :default-openeds="['archive', 'admin']"
       class="sidebar-menu"
@@ -16,18 +13,33 @@
       text-color="#fff"
       active-text-color="#fff"
     >
-      <el-menu-item v-if="hasMenu('/optimization-tasks')" index="/optimization-tasks" @click="navigate('/optimization-tasks')">
-        <el-icon><MagicStick /></el-icon>
+      <el-menu-item
+        v-if="hasMenu('/optimization-tasks')"
+        index="/optimization-tasks"
+        data-path="/optimization-tasks"
+        @click="navigate('/optimization-tasks')"
+      >
+        <el-icon><Opportunity /></el-icon>
         <span>SQL优化建议</span>
       </el-menu-item>
 
-      <el-menu-item v-if="hasMenu('/slow-sqls')" index="/slow-sqls" @click="navigate('/slow-sqls')">
-        <el-icon><DataLine /></el-icon>
+      <el-menu-item
+        v-if="hasMenu('/slow-sqls')"
+        index="/slow-sqls"
+        data-path="/slow-sqls"
+        @click="navigate('/slow-sqls')"
+      >
+        <el-icon><TrendCharts /></el-icon>
         <span>慢SQL列表</span>
       </el-menu-item>
 
-      <el-menu-item v-if="hasMenu('/connections')" index="/connections" @click="navigate('/connections')">
-        <el-icon><Setting /></el-icon>
+      <el-menu-item
+        v-if="hasMenu('/connections')"
+        index="/connections"
+        data-path="/connections"
+        @click="navigate('/connections')"
+      >
+        <el-icon><Connection /></el-icon>
         <span>连接管理</span>
       </el-menu-item>
 
@@ -36,11 +48,21 @@
           <el-icon><FolderOpened /></el-icon>
           <span>归档管理</span>
         </template>
-        <el-menu-item v-if="hasMenu('/archive-tasks')" index="/archive-tasks" @click="navigate('/archive-tasks')">
-          <el-icon><List /></el-icon>
+        <el-menu-item
+          v-if="hasMenu('/archive-tasks')"
+          index="/archive-tasks"
+          data-path="/archive-tasks"
+          @click="navigate('/archive-tasks')"
+        >
+          <el-icon><Tickets /></el-icon>
           <span>归档任务</span>
         </el-menu-item>
-        <el-menu-item v-if="hasMenu('/execution-logs')" index="/execution-logs" @click="navigate('/execution-logs')">
+        <el-menu-item
+          v-if="hasMenu('/execution-logs')"
+          index="/execution-logs"
+          data-path="/execution-logs"
+          @click="navigate('/execution-logs')"
+        >
           <el-icon><Document /></el-icon>
           <span>执行日志</span>
         </el-menu-item>
@@ -48,18 +70,33 @@
 
       <el-sub-menu v-if="showAdmin" index="admin">
         <template #title>
-          <el-icon><UserFilled /></el-icon>
+          <el-icon><Setting /></el-icon>
           <span>系统管理</span>
         </template>
-        <el-menu-item v-if="hasMenu('/users')" index="/users" @click="navigate('/users')">
+        <el-menu-item
+          v-if="hasMenu('/users')"
+          index="/users"
+          data-path="/users"
+          @click="navigate('/users')"
+        >
           <el-icon><User /></el-icon>
           <span>用户管理</span>
         </el-menu-item>
-        <el-menu-item v-if="hasMenu('/roles')" index="/roles" @click="navigate('/roles')">
-          <el-icon><Management /></el-icon>
+        <el-menu-item
+          v-if="hasMenu('/roles')"
+          index="/roles"
+          data-path="/roles"
+          @click="navigate('/roles')"
+        >
+          <el-icon><Key /></el-icon>
           <span>角色管理</span>
         </el-menu-item>
-        <el-menu-item v-if="hasMenu('/permissions')" index="/permissions" @click="navigate('/permissions')">
+        <el-menu-item
+          v-if="hasMenu('/permissions')"
+          index="/permissions"
+          data-path="/permissions"
+          @click="navigate('/permissions')"
+        >
           <el-icon><Lock /></el-icon>
           <span>权限管理</span>
         </el-menu-item>
@@ -72,22 +109,24 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  DataLine,
+  Connection,
+  Key,
+  Opportunity,
   Setting,
   FolderOpened,
   Document,
-  List,
-  MagicStick,
-  Management,
   Lock,
+  Tickets,
+  TrendCharts,
   User,
-  UserFilled
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { useLayoutStore } from '@/stores/layout'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const layoutStore = useLayoutStore()
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/optimization-tasks')) return '/optimization-tasks'
@@ -110,36 +149,33 @@ function hasMenu(path: string) {
 function navigate(path: string) {
   router.push(path)
 }
-
-async function handleLogout() {
-  await authStore.logout()
-  router.replace('/login')
-}
 </script>
 
 <style scoped>
 .sidebar {
   min-height: 100vh;
   background-color: #343a40;
-  padding-top: 20px;
+  padding-top: 16px;
 }
 
 .sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
   padding: 0 20px 12px;
 }
 
 .sidebar-header h5 {
   color: #fff;
   margin: 0;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
-.user-line {
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #c9d3df;
-  font-size: 12px;
+.sidebar.is-collapsed .sidebar-header {
+  padding-inline: 0;
 }
 
 .sidebar-menu {
