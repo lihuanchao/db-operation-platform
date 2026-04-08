@@ -89,7 +89,7 @@ class FlashbackService:
 
         total_pages = (total + per_page - 1) // per_page if total else 1
         return {
-            'items': [task.to_dict() for task in tasks.items],
+            'items': [task.to_dict(include_paths=False) for task in tasks.items],
             'pagination': {
                 'page': page,
                 'per_page': per_page,
@@ -107,59 +107,61 @@ class FlashbackService:
         task = db.session.get(FlashbackTask, task_id)
         if not task:
             return None
-        return task.to_dict()
+        return task.to_dict(include_paths=False)
 
     @classmethod
     def get_log_content(cls, task_id):
         task = db.session.get(FlashbackTask, task_id)
         if not task:
-            return None, '闪回任务不存在'
+            return None, '闪回任务不存在', 404
 
         if not task.log_file:
-            return {'content': '', 'has_file': False}, None
+            return None, '日志文件不存在', 404
 
         log_file = cls._resolve_task_path(task_id, task.log_file)
         if not log_file:
-            return None, '日志文件路径越界'
+            return None, '日志文件路径越界', 404
 
         if not os.path.exists(log_file):
-            return {'content': '', 'has_file': False}, None
+            return None, '日志文件不存在', 404
 
         try:
             with open(log_file, 'r', encoding='utf-8') as file_obj:
-                return {'content': file_obj.read(), 'has_file': True}, None
+                return {'content': file_obj.read(), 'has_file': True}, None, 200
+        except (OSError, UnicodeError) as exc:
+            return None, str(exc), 500
         except Exception as exc:
-            return None, str(exc)
+            return None, str(exc), 500
 
     @classmethod
     def resolve_download_file(cls, task_id, artifact_id=None):
         task = db.session.get(FlashbackTask, task_id)
         if not task:
-            return None, '闪回任务不存在'
+            return None, '闪回任务不存在', 404
 
         if not artifact_id:
             if not task.log_file:
-                return None, '日志文件不存在'
+                return None, '日志文件不存在', 404
             log_file = cls._resolve_task_path(task_id, task.log_file)
             if not log_file:
-                return None, '日志文件路径越界'
+                return None, '日志文件路径越界', 404
             if not os.path.exists(log_file):
-                return None, '日志文件不存在'
-            return log_file, None
+                return None, '日志文件不存在', 404
+            return log_file, None, 200
 
         for item in task.get_artifacts():
             if item.get('id') == artifact_id:
                 artifact_path = item.get('path')
                 if not artifact_path:
-                    return None, '产物文件不存在'
+                    return None, '产物文件不存在', 404
                 resolved_path = cls._resolve_task_path(task_id, artifact_path)
                 if not resolved_path:
-                    return None, '产物文件路径越界'
+                    return None, '产物文件路径越界', 404
                 if not os.path.exists(resolved_path):
-                    return None, '产物文件不存在'
-                return resolved_path, None
+                    return None, '产物文件不存在', 404
+                return resolved_path, None, 200
 
-        return None, '产物文件不存在'
+        return None, '产物文件不存在', 404
 
     @classmethod
     def create_task(cls, data, current_user=None):
@@ -203,7 +205,7 @@ class FlashbackService:
             started, start_error = cls._run_task_async(task.id)
             if not started:
                 return None, start_error or '异步任务启动失败'
-            return task.to_dict(), None
+            return task.to_dict(include_paths=False), None
         except Exception as exc:
             db.session.rollback()
             return None, str(exc)

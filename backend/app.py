@@ -1056,9 +1056,9 @@ def download_typed_execution_log(current_user, log_type, id):
     """下载统一执行日志文件"""
     if log_type == 'flashback':
         artifact_id = request.args.get('artifact_id')
-        file_path, error = FlashbackService.resolve_download_file(id, artifact_id or None)
+        file_path, error, status_code = FlashbackService.resolve_download_file(id, artifact_id or None)
         if error:
-            return error_response(error, 404)
+            return error_response(error, status_code)
         if not file_path or not os.path.exists(file_path):
             return error_response('日志文件不存在', 404)
         return _send_file_download(file_path)
@@ -1094,9 +1094,9 @@ def get_log_content(current_user, id):
 def get_typed_log_content(current_user, log_type, id):
     """获取统一执行日志内容"""
     if log_type == 'flashback':
-        data, error = FlashbackService.get_log_content(id)
+        data, error, status_code = FlashbackService.get_log_content(id)
         if error:
-            return error_response(error, 404)
+            return error_response(error, status_code)
         return success_response(data)
 
     if log_type == 'archive':
@@ -1119,9 +1119,9 @@ def list_flashback_artifacts(current_user, id):
 @admin_required
 def download_flashback_artifact(current_user, id, artifact_id):
     """下载闪回任务产物文件"""
-    file_path, error = FlashbackService.resolve_download_file(id, artifact_id)
+    file_path, error, status_code = FlashbackService.resolve_download_file(id, artifact_id)
     if error:
-        return error_response(error, 404)
+        return error_response(error, status_code)
     if not file_path or not os.path.exists(file_path):
         return error_response('文件不存在', 404)
     return _send_file_download(file_path)

@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import unittest
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 os.environ['USE_SQLITE'] = 'true'
 os.environ['SECRET_KEY'] = 'execution-log-secret'
@@ -135,18 +136,20 @@ class ExecutionLogApiTestCase(unittest.TestCase):
 
         if artifacts is not None:
             normalized_artifacts = []
+            task_root = os.path.join(self.temp_dir, str(task.id))
             for artifact in artifacts:
                 artifact_path = artifact['path']
-                os.makedirs(os.path.dirname(artifact_path), exist_ok=True)
+                absolute_path = artifact_path if os.path.isabs(artifact_path) else os.path.join(task_root, artifact_path)
+                os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
                 content = artifact.get('content', '')
                 if content is not None:
-                    with open(artifact_path, 'w', encoding='utf-8') as file_obj:
+                    with open(absolute_path, 'w', encoding='utf-8') as file_obj:
                         file_obj.write(content)
                 normalized_artifacts.append({
                     'id': artifact['id'],
-                    'name': artifact.get('name') or os.path.basename(artifact_path),
+                    'name': artifact.get('name') or os.path.basename(absolute_path),
                     'path': artifact_path,
-                    'size': os.path.getsize(artifact_path),
+                    'size': os.path.getsize(absolute_path),
                 })
             task.set_artifacts(normalized_artifacts)
 
@@ -187,6 +190,41 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         self.assertEqual([item['id'] for item in all_data['items']], [flashback_task.id, archive_log.id])
         self.assertEqual([item['log_type'] for item in all_data['items']], ['flashback', 'archive'])
 
+    def test_execution_logs_stable_order_across_pages_for_equal_timestamps(self):
+        event_time = datetime(2026, 4, 8, 10, 0, 0)
+        first_archive = self._create_archive_log(task_id=30, log_id=30, start_time=event_time, end_time=event_time)
+        second_flashback = self._create_flashback_task(task_id=31, started_at=event_time, finished_at=event_time)
+        third_archive = self._create_archive_log(task_id=32, log_id=32, start_time=event_time, end_time=event_time)
+
+        page1 = self.client.get('/api/execution-logs?page=1&per_page=1&log_type=all')
+        page2 = self.client.get('/api/execution-logs?page=2&per_page=1&log_type=all')
+        page3 = self.client.get('/api/execution-logs?page=3&per_page=1&log_type=all')
+
+        self.assertEqual(page1.status_code, 200)
+        self.assertEqual(page2.status_code, 200)
+        self.assertEqual(page3.status_code, 200)
+        self.assertEqual(page1.get_json()['data']['items'][0]['id'], third_archive.id)
+        self.assertEqual(page2.get_json()['data']['items'][0]['id'], second_flashback.id)
+        self.assertEqual(page3.get_json()['data']['items'][0]['id'], first_archive.id)
+
+    def test_flashback_status_filter_maps_queued_running_and_failed(self):
+        queued_task = self._create_flashback_task(task_id=40, status='queued')
+        running_task = self._create_flashback_task(task_id=41, status='running')
+        failed_task = self._create_flashback_task(task_id=42, status='failed')
+
+        queued_resp = self.client.get('/api/execution-logs?page=1&per_page=10&log_type=flashback&status=2')
+        failed_resp = self.client.get('/api/execution-logs?page=1&per_page=10&log_type=flashback&status=0')
+
+        self.assertEqual(queued_resp.status_code, 200)
+        self.assertEqual(failed_resp.status_code, 200)
+        self.assertEqual(queued_resp.get_json()['data']['total'], 2)
+        self.assertCountEqual(
+            [item['id'] for item in queued_resp.get_json()['data']['items']],
+            [queued_task.id, running_task.id],
+        )
+        self.assertEqual(failed_resp.get_json()['data']['total'], 1)
+        self.assertEqual(failed_resp.get_json()['data']['items'][0]['id'], failed_task.id)
+
     def test_flashback_log_content_rejects_log_file_outside_task_root(self):
         rogue_log = os.path.join(self.escape_dir, 'rogue.log')
         with open(rogue_log, 'w', encoding='utf-8') as file_obj:
@@ -197,6 +235,20 @@ class ExecutionLogApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.get_json()['success'])
+
+    def test_flashback_typed_log_content_reads_file_and_surfaces_io_errors(self):
+        task = self._create_flashback_task(task_id=22, log_content='flashback log content')
+
+        ok_response = self.client.get(f'/api/execution-logs/flashback/{task.id}/log-content')
+        self.assertEqual(ok_response.status_code, 200)
+        self.assertEqual(ok_response.get_json()['data']['content'], 'flashback log content')
+
+        with patch('services.flashback_service.open', side_effect=PermissionError('permission denied')):
+            fail_response = self.client.get(f'/api/execution-logs/flashback/{task.id}/log-content')
+
+        self.assertEqual(fail_response.status_code, 500)
+        self.assertFalse(fail_response.get_json()['success'])
+        self.assertIn('permission denied', fail_response.get_json()['error'])
 
     def test_flashback_artifact_download_rejects_tampered_manifest_path(self):
         rogue_artifact = os.path.join(self.escape_dir, 'escape.sql')
@@ -213,6 +265,44 @@ class ExecutionLogApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.get_json()['success'])
+
+    def test_flashback_artifact_download_returns_file_from_task_root(self):
+        artifact_rel_path = os.path.join('output', 'result.sql')
+        task = self._create_flashback_task(
+            task_id=23,
+            artifacts=[{
+                'id': 'result-sql',
+                'path': artifact_rel_path,
+                'content': 'select 1;',
+            }],
+        )
+
+        response = self.client.get(f'/api/flashback-tasks/{task.id}/artifacts/result-sql/download')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('attachment', response.headers.get('Content-Disposition', ''))
+        self.assertEqual(response.data.decode('utf-8'), 'select 1;')
+        response.close()
+
+    def test_flashback_task_detail_hides_artifact_paths(self):
+        task = self._create_flashback_task(
+            task_id=24,
+            artifacts=[{
+                'id': 'result-sql',
+                'path': os.path.join('output', 'result.sql'),
+                'content': 'select 1;',
+            }],
+        )
+
+        response = self.client.get(f'/api/flashback-tasks/{task.id}')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()['data']
+        self.assertEqual(data['log_file'], None)
+        self.assertEqual(data['artifacts'][0]['id'], 'result-sql')
+        self.assertEqual(data['artifacts'][0]['name'], 'result.sql')
+        self.assertEqual(data['artifacts'][0]['size'], len('select 1;'))
+        self.assertNotIn('path', data['artifacts'][0])
 
 
 if __name__ == '__main__':

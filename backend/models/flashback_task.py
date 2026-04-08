@@ -49,7 +49,19 @@ class FlashbackTask(db.Model):
         except (TypeError, ValueError):
             return []
 
-    def to_dict(self):
+    @staticmethod
+    def _public_artifacts(artifacts, include_paths=True):
+        if include_paths:
+            return artifacts
+        public_items = []
+        for artifact in artifacts:
+            public_item = dict(artifact)
+            public_item.pop('path', None)
+            public_items.append(public_item)
+        return public_items
+
+    def to_dict(self, include_paths=True):
+        artifacts = self.get_artifacts()
         return {
             'id': self.id,
             'db_connection_id': self.db_connection_id,
@@ -67,9 +79,9 @@ class FlashbackTask(db.Model):
             'status': self.status,
             'progress': self.progress,
             'output_dir': self.output_dir,
-            'log_file': self.log_file,
+            'log_file': self.log_file if include_paths else None,
             'masked_command': self.masked_command,
-            'artifacts': self.get_artifacts(),
+            'artifacts': self._public_artifacts(artifacts, include_paths=include_paths),
             'error_message': self.error_message,
             'creator_user_id': self.creator_user_id,
             'creator_employee_no': self.creator_employee_no,
@@ -78,4 +90,3 @@ class FlashbackTask(db.Model):
             'started_at': self.started_at.strftime('%Y-%m-%d %H:%M:%S') if self.started_at else None,
             'finished_at': self.finished_at.strftime('%Y-%m-%d %H:%M:%S') if self.finished_at else None,
         }
-

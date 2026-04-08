@@ -644,18 +644,18 @@ def get_flashback_task_detail(current_user, id):
 @app.route('/api/flashback-tasks/<int:id>/log-content', methods=['GET'])
 @admin_required
 def get_flashback_task_log_content(current_user, id):
-    data, error = FlashbackService.get_log_content(id)
+    data, error, status_code = FlashbackService.get_log_content(id)
     if error:
-        return error_response(error, 404)
+        return error_response(error, status_code)
     return success_response(data)
 
 
 @app.route('/api/flashback-tasks/<int:id>/download-log', methods=['GET'])
 @admin_required
 def download_flashback_task_log(current_user, id):
-    file_path, error = FlashbackService.resolve_download_file(id)
+    file_path, error, status_code = FlashbackService.resolve_download_file(id)
     if error:
-        return error_response(error, 404)
+        return error_response(error, status_code)
     return send_file(file_path, as_attachment=True, download_name=os.path.basename(file_path))
 ```
 
@@ -677,6 +677,13 @@ git commit -m "feat: add flashback task api and async runner"
 ```
 
 ## Task 3: Unify Archive Logs And Flashback Logs (TDD)
+
+契约修正说明：
+
+- `GET /api/execution-logs` 默认仍保持 `archive-only`，以兼容现有前端旧调用。
+- 只有显式 `log_type=flashback` 或 `log_type=all` / `log_type=merged` 时，才返回闪回或聚合视图。
+- `GET /api/execution-logs/flashback/<id>/log-content` 成功返回 `200`，任务不存在 / 路径越界返回 `404`，真实文件读取 I/O 异常返回 `500`。
+- `GET /api/flashback-tasks/<id>/artifacts` 只返回 `id` / `name` / `size`，不暴露服务端绝对路径。
 
 **Files:**
 - Create: `backend/tests/test_execution_log_api.py`
@@ -779,11 +786,22 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         self.ctx.pop()
 
     def test_execution_logs_can_filter_by_type(self):
+        resp = self.client.get('/api/execution-logs?page=1&per_page=10')
+        self.assertEqual(resp.status_code, 200)
+        items = resp.get_json()['data']['items']
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]['log_type'], 'archive')
+
+    def test_flashback_logs_require_explicit_log_type(self):
         resp = self.client.get('/api/execution-logs?page=1&per_page=10&log_type=flashback')
         self.assertEqual(resp.status_code, 200)
         items = resp.get_json()['data']['items']
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0]['log_type'], 'flashback')
+
+        resp = self.client.get('/api/execution-logs?page=1&per_page=10&log_type=all')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()['data']['total'], 2)
 
     def test_flashback_log_content_endpoint_reads_task_log(self):
         with open(FlashbackTask.query.get(self.flashback_id).log_file, 'w', encoding='utf-8') as f:
@@ -792,6 +810,11 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         resp = self.client.get(f'/api/execution-logs/flashback/{self.flashback_id}/log-content')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get_json()['data']['content'], 'flashback log content')
+
+    def test_flashback_log_content_returns_500_for_io_error(self):
+        with patch('services.flashback_service.open', side_effect=PermissionError('permission denied')):
+            resp = self.client.get(f'/api/execution-logs/flashback/{self.flashback_id}/log-content')
+        self.assertEqual(resp.status_code, 500)
 ```
 
 - [ ] **Step 2: Run test to verify RED**
@@ -802,7 +825,7 @@ Run:
 python3 -m unittest backend.tests.test_execution_log_api -v
 ```
 
-Expected: FAIL，提示 `log_type` 不存在或 `/api/execution-logs/flashback/<id>/log-content` 404。
+Expected: FAIL，提示默认列表仍混入闪回、`all` 未聚合、或 `/api/execution-logs/flashback/<id>/log-content` 错误码不分层。
 
 - [ ] **Step 3: Implement unified log aggregation**
 
@@ -823,64 +846,9 @@ class ExecutionLogService:
 
     @classmethod
     def get_log_list(cls, page=1, per_page=10, task_name='', status=None, log_type=''):
-        archive_items = []
-        flashback_items = []
-
-        if log_type in ('', 'archive'):
-            query = ExecutionLog.query.join(ArchiveTask, ArchiveTask.id == ExecutionLog.task_id)
-            if task_name:
-                query = query.filter(ArchiveTask.task_name.like(f'%{task_name}%'))
-            if status is not None:
-                query = query.filter(ExecutionLog.status == status)
-            archive_items = [{
-                **log.to_dict(),
-                'log_type': 'archive',
-                'detail_path': '/archive-tasks',
-            } for log in query.all()]
-
-        if log_type in ('', 'flashback'):
-            query = FlashbackTask.query
-            if task_name:
-                query = query.filter(
-                    (FlashbackTask.database_name.like(f'%{task_name}%')) |
-                    (FlashbackTask.table_name.like(f'%{task_name}%'))
-                )
-            if status is not None:
-                matched = ['failed']
-                if status == 1:
-                    matched = ['completed']
-                elif status == 2:
-                    matched = ['queued', 'running']
-                query = query.filter(FlashbackTask.status.in_(matched))
-            flashback_items = [{
-                'id': item.id,
-                'task_id': item.id,
-                'task_name': f'{item.database_name}.{item.table_name}',
-                'cron_job_id': None,
-                'start_time': item.started_at.strftime('%Y-%m-%d %H:%M:%S') if item.started_at else None,
-                'end_time': item.finished_at.strftime('%Y-%m-%d %H:%M:%S') if item.finished_at else None,
-                'status': cls.normalize_flashback_status(item.status),
-                'log_file': item.log_file,
-                'error_message': item.error_message,
-                'created_at': item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else None,
-                'log_type': 'flashback',
-                'detail_path': f'/flashback-tasks/{item.id}',
-            } for item in query.all()]
-
-        merged = sorted(
-            archive_items + flashback_items,
-            key=lambda item: item.get('start_time') or item.get('created_at') or '',
-            reverse=True
-        )
-        total = len(merged)
-        start = (page - 1) * per_page
-        end = start + per_page
-        return {
-            'items': merged[start:end],
-            'total': total,
-            'page': page,
-            'per_page': per_page,
-        }
+        # 默认 archive-only；flashback-only 和 all/merged 走单独分支。
+        # archive-only / flashback-only 使用数据库排序 + paginate。
+        # all/merged 只抓取 page * per_page 的候选项后在内存里稳定合并。
 ```
 
 `backend/services/flashback_service.py`
@@ -888,23 +856,11 @@ class ExecutionLogService:
 ```python
     @classmethod
     def get_log_content(cls, task_id):
-        task = FlashbackTask.query.get(task_id)
-        if not task or not task.log_file or not os.path.exists(task.log_file):
-            return {'content': '', 'has_file': False}, None
-        with open(task.log_file, 'r', encoding='utf-8') as f:
-            return {'content': f.read(), 'has_file': True}, None
+        # 任务不存在 / 路径越界 / 文件缺失返回 404；真实 I/O 异常返回 500。
 
     @classmethod
     def resolve_download_file(cls, task_id, artifact_id=None):
-        task = FlashbackTask.query.get(task_id)
-        if not task:
-            return None, '闪回任务不存在'
-        if artifact_id is None:
-            return task.log_file, None
-        for item in task.get_artifacts():
-            if item['id'] == artifact_id:
-                return item['path'], None
-        return None, '产物文件不存在'
+        # 所有候选路径必须落在 OUTPUT_ROOT/<task_id>/ 下，artifact 列表只暴露 id/name/size。
 ```
 
 `backend/app.py`
@@ -918,7 +874,7 @@ def get_execution_logs(current_user):
         per_page=request.args.get('per_page', 10, type=int),
         task_name=request.args.get('task_name', ''),
         status=request.args.get('status', None, type=int),
-        log_type=request.args.get('log_type', ''),
+        log_type=request.args.get('log_type'),
     )
     return success_response(data)
 
@@ -927,9 +883,9 @@ def get_execution_logs(current_user):
 @admin_required
 def download_typed_execution_log(current_user, log_type, id):
     if log_type == 'flashback':
-        file_path, error = FlashbackService.resolve_download_file(id)
+        file_path, error, status_code = FlashbackService.resolve_download_file(id)
         if error:
-            return error_response(error, 404)
+            return error_response(error, status_code)
         return send_file(file_path, as_attachment=True, download_name=os.path.basename(file_path))
     return download_execution_log(current_user, id)
 
@@ -938,9 +894,9 @@ def download_typed_execution_log(current_user, log_type, id):
 @admin_required
 def get_typed_log_content(current_user, log_type, id):
     if log_type == 'flashback':
-        data, error = FlashbackService.get_log_content(id)
+        data, error, status_code = FlashbackService.get_log_content(id)
         if error:
-            return error_response(error, 404)
+            return error_response(error, status_code)
         return success_response(data)
     return get_log_content(current_user, id)
 
@@ -948,9 +904,9 @@ def get_typed_log_content(current_user, log_type, id):
 @app.route('/api/flashback-tasks/<int:id>/artifacts/<string:artifact_id>/download', methods=['GET'])
 @admin_required
 def download_flashback_artifact(current_user, id, artifact_id):
-    file_path, error = FlashbackService.resolve_download_file(id, artifact_id)
+    file_path, error, status_code = FlashbackService.resolve_download_file(id, artifact_id)
     if error:
-        return error_response(error, 404)
+        return error_response(error, status_code)
     return send_file(file_path, as_attachment=True, download_name=os.path.basename(file_path))
 
 
