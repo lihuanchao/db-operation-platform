@@ -80,6 +80,14 @@ class FlashbackServiceTestCase(unittest.TestCase):
         self.assertNotIn('-start-file', command)
         self.assertNotIn('-stop-file', command)
 
+    def test_build_command_skips_empty_start_and_stop_datetime(self):
+        task = self._make_task(start_datetime='', stop_datetime='')
+
+        command, _ = FlashbackService.build_command(task, self._make_connection(), self.output_dir)
+
+        self.assertNotIn('-start-datetime', command)
+        self.assertNotIn('-stop-datetime', command)
+
     def test_masked_command_hides_password_value(self):
         task = self._make_task()
 
@@ -105,13 +113,13 @@ class FlashbackServiceTestCase(unittest.TestCase):
 
         self.assertEqual(artifacts, [
             {
-                'id': 'binlog_status',
+                'id': 'binlog-status',
                 'name': 'binlog_status.txt',
                 'path': os.path.join(self.output_dir, 'binlog_status.txt'),
                 'size': len('binlog_status.txt'),
             },
             {
-                'id': 'biglong_trx',
+                'id': 'biglong-trx',
                 'name': 'biglong_trx.txt',
                 'path': os.path.join(self.output_dir, 'biglong_trx.txt'),
                 'size': len('biglong_trx.txt'),
@@ -168,6 +176,21 @@ class FlashbackServiceTestCase(unittest.TestCase):
         self.assertEqual(task.to_dict()['updated_at'], '2026-04-08 08:03:04')
         self.assertEqual(task.to_dict()['started_at'], '2026-04-08 08:05:06')
         self.assertEqual(task.to_dict()['finished_at'], '2026-04-08 08:07:08')
+
+    def test_flashback_task_get_artifacts_handles_invalid_json(self):
+        task = FlashbackTask(
+            db_connection_id=1,
+            connection_id=1,
+            connection_name='测试连接',
+            database_name='demo_db',
+            table_name='orders',
+            mode='repl',
+            sql_type='delete',
+            work_type='2sql',
+        )
+        task.artifact_manifest = '{not valid json'
+
+        self.assertEqual(task.get_artifacts(), [])
 
 
 if __name__ == '__main__':

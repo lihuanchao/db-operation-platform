@@ -48,8 +48,8 @@ class FlashbackService:
     def collect_artifacts(output_dir):
         items = []
         for artifact_id, name in (
-            ('binlog_status', 'binlog_status.txt'),
-            ('biglong_trx', 'biglong_trx.txt'),
+            ('binlog-status', 'binlog_status.txt'),
+            ('biglong-trx', 'biglong_trx.txt'),
         ):
             path = os.path.join(output_dir, name)
             if not os.path.exists(path):
