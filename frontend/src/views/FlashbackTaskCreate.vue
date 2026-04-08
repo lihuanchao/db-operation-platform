@@ -145,7 +145,11 @@ const formData = reactive({
 })
 
 const selectedConnection = computed(() => {
-  return authStore.authorizedConnections.find(item => item.id === formData.db_connection_id) ?? authStore.authorizedConnections[0] ?? null
+  if (!formData.db_connection_id) {
+    return null
+  }
+
+  return authStore.authorizedConnections.find(item => item.id === formData.db_connection_id) ?? null
 })
 
 const connectionSummary = computed(() => {

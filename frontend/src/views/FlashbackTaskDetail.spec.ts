@@ -7,11 +7,22 @@ import type { FlashbackTask } from '@/types'
 const pushMock = vi.fn()
 
 const {
+  authStoreState,
   getFlashbackTaskMock,
   getFlashbackTaskLogContentMock,
   downloadFlashbackTaskArtifactMock,
   downloadFlashbackTaskLogMock
 } = vi.hoisted(() => ({
+  authStoreState: {
+    authorizedConnections: [
+      {
+        id: 1,
+        connection_name: '订单库',
+        host: '10.0.0.11',
+        port: 3306
+      }
+    ]
+  },
   getFlashbackTaskMock: vi.fn(),
   getFlashbackTaskLogContentMock: vi.fn(),
   downloadFlashbackTaskArtifactMock: vi.fn(),
@@ -39,6 +50,10 @@ vi.mock('@/api/flashbackTask', () => ({
   downloadFlashbackTaskLog: downloadFlashbackTaskLogMock
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStoreState
+}))
+
 import FlashbackTaskDetail from './FlashbackTaskDetail.vue'
 
 function buildTask(overrides: Partial<FlashbackTask> = {}): FlashbackTask {
@@ -51,6 +66,12 @@ function buildTask(overrides: Partial<FlashbackTask> = {}): FlashbackTask {
     mode: 'repl',
     sql_type: 'delete',
     work_type: '2sql',
+    start_file: 'mysql-bin.000001',
+    stop_file: 'mysql-bin.000002',
+    creator_employee_no: 'E0001',
+    started_at: '2026-04-08 10:00:10',
+    finished_at: '2026-04-08 10:04:10',
+    masked_command: 'mysqldump --where=***',
     status: 'queued',
     progress: 20,
     artifacts: [
@@ -60,6 +81,7 @@ function buildTask(overrides: Partial<FlashbackTask> = {}): FlashbackTask {
     ],
     created_at: '2026-04-08 10:00:00',
     updated_at: '2026-04-08 10:01:00',
+    error_message: null,
     ...overrides
   }
 }
@@ -84,6 +106,14 @@ describe('FlashbackTaskDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    authStoreState.authorizedConnections = [
+      {
+        id: 1,
+        connection_name: '订单库',
+        host: '10.0.0.11',
+        port: 3306
+      }
+    ]
 
     getFlashbackTaskMock.mockResolvedValue({
       success: true,
@@ -133,11 +163,20 @@ describe('FlashbackTaskDetail', () => {
     expect(wrapper.text()).toContain('binlog_status.txt')
     expect(wrapper.text()).toContain('biglong_trx.txt')
     expect(wrapper.text()).toContain('orders.sql')
+    expect(wrapper.text()).toContain('10.0.0.11:3306')
+    expect(wrapper.text()).toContain('mysql-bin.000001')
+    expect(wrapper.text()).toContain('mysql-bin.000002')
+    expect(wrapper.text()).toContain('E0001')
+    expect(wrapper.text()).toContain('2026-04-08 10:00:10')
+    expect(wrapper.text()).toContain('2026-04-08 10:04:10')
+    expect(wrapper.text()).toContain('mysqldump --where=***')
 
     await wrapper.get('[data-artifact-id="sql"]').trigger('click')
+    await wrapper.get('button.refresh-log-btn').trigger('click')
     await wrapper.get('button.download-log-btn').trigger('click')
     await flushPromises()
 
+    expect(getFlashbackTaskLogContentMock).toHaveBeenCalledTimes(2)
     expect(downloadFlashbackTaskArtifactMock).toHaveBeenCalledWith(11, 'sql')
     expect(downloadFlashbackTaskLogMock).toHaveBeenCalledWith(11)
   })
@@ -154,5 +193,20 @@ describe('FlashbackTaskDetail', () => {
     expect(getFlashbackTaskMock).toHaveBeenCalledTimes(2)
 
     wrapper.unmount()
+  })
+
+  it('shows the task error message when present', async () => {
+    getFlashbackTaskMock.mockResolvedValueOnce({
+      success: true,
+      data: buildTask({
+        status: 'failed',
+        error_message: 'replication halted'
+      })
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('replication halted')
   })
 })

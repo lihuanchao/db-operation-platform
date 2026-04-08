@@ -13,6 +13,7 @@
         <el-descriptions v-if="task" :column="3" border>
           <el-descriptions-item label="任务ID">{{ task.id }}</el-descriptions-item>
           <el-descriptions-item label="连接名称">{{ task.connection_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="数据库连接">{{ hostPort }}</el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="statusTagType(task.status)">{{ statusText(task.status) }}</el-tag>
           </el-descriptions-item>
@@ -21,12 +22,24 @@
           <el-descriptions-item label="mode">{{ task.mode || 'repl' }}</el-descriptions-item>
           <el-descriptions-item label="SQL 类型">{{ task.sql_type }}</el-descriptions-item>
           <el-descriptions-item label="输出类型">{{ task.work_type }}</el-descriptions-item>
+          <el-descriptions-item label="起始日志文件">{{ task.start_file || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="结束日志文件">{{ task.stop_file || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="创建人">{{ task.creator_employee_no || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="开始时间">{{ task.started_at || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="完成时间">{{ task.finished_at || '-' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ task.created_at || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="开始时间">{{ task.start_datetime || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="结束时间">{{ task.stop_datetime || '-' }}</el-descriptions-item>
           <el-descriptions-item label="更新时间">{{ task.updated_at || '-' }}</el-descriptions-item>
         </el-descriptions>
         <el-empty v-else description="暂无任务详情" />
+      </el-card>
+
+      <el-card shadow="never" class="command-card">
+        <template #header>
+          <div class="card-header">
+            <span>脱敏命令</span>
+          </div>
+        </template>
+        <pre class="command-text">{{ task?.masked_command || '-' }}</pre>
       </el-card>
 
       <el-card shadow="never" class="artifact-card">
@@ -60,9 +73,20 @@
         <template #header>
           <div class="card-header">
             <span>执行日志</span>
-            <el-button link type="primary" class="download-log-btn" @click="handleDownloadLog">下载日志</el-button>
+            <div class="log-actions">
+              <el-button link type="primary" class="refresh-log-btn" @click="handleRefreshLog">刷新日志</el-button>
+              <el-button link type="primary" class="download-log-btn" @click="handleDownloadLog">下载日志</el-button>
+            </div>
           </div>
         </template>
+
+        <el-alert
+          v-if="task?.error_message"
+          class="error-alert"
+          type="error"
+          show-icon
+          :title="task.error_message"
+        />
 
         <div class="log-body">
           <pre class="log-content">{{ logContent || '暂无日志内容' }}</pre>
@@ -76,17 +100,27 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/Layout/AppLayout.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useFlashbackTaskStore } from '@/stores/flashbackTask'
 import type { FlashbackTaskStatus } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const store = useFlashbackTaskStore()
 const logContent = ref('')
 const timer = ref<number | null>(null)
 
 const taskId = computed(() => Number(route.params.id))
 const task = computed(() => store.currentTask)
+const hostPort = computed(() => {
+  const connection = authStore.authorizedConnections.find(item => item.id === task.value?.db_connection_id)
+  if (!connection) {
+    return '-'
+  }
+
+  return `${connection.host}:${connection.port}`
+})
 const artifactList = computed(() => {
   if (store.artifacts.length) {
     return store.artifacts
@@ -175,6 +209,11 @@ async function handleDownloadLog() {
   if (!taskId.value) return
   await store.downloadLog(taskId.value)
 }
+
+async function handleRefreshLog() {
+  if (!taskId.value) return
+  await refreshLog(taskId.value)
+}
 </script>
 
 <style scoped>
@@ -213,6 +252,7 @@ async function handleDownloadLog() {
 }
 
 .summary-card :deep(.el-card__body),
+.command-card :deep(.el-card__body),
 .artifact-card :deep(.el-card__body),
 .log-card :deep(.el-card__body) {
   padding: 16px;
@@ -224,6 +264,30 @@ async function handleDownloadLog() {
   justify-content: space-between;
   font-weight: 700;
   color: #162135;
+}
+
+.log-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.command-card {
+  border: 1px solid #d9e6f2;
+  border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(15, 42, 61, 0.05);
+}
+
+.command-text {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #e1e8f1;
+  border-radius: 8px;
+  background: #f9fbfe;
+  color: #203246;
+  font-family: 'Consolas', 'Monaco', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .artifact-list {
@@ -261,6 +325,10 @@ async function handleDownloadLog() {
 
 .log-body {
   min-height: 180px;
+}
+
+.error-alert {
+  margin-bottom: 12px;
 }
 
 .log-content {

@@ -124,6 +124,34 @@ describe('FlashbackTaskCreate', () => {
     expect(createFlashbackTaskMock).not.toHaveBeenCalled()
   })
 
+  it('does not fall back to the first connection when multiple connections exist', async () => {
+    getAuthorizedConnectionsMock.mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            id: 9,
+            connection_name: '订单库',
+            host: '10.0.0.11',
+            port: 3306
+          },
+          {
+            id: 10,
+            connection_name: '审计库',
+            host: '10.0.0.12',
+            port: 3307
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('请选择连接后显示摘要')
+    expect(wrapper.text()).not.toContain('10.0.0.11:3306')
+  })
+
   it('submits the minimal required fields and navigates to the task detail page', async () => {
     const wrapper = mountView()
     await flushPromises()
