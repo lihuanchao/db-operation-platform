@@ -1,5 +1,12 @@
+import subprocess
+import threading
+from datetime import datetime
 import glob
 import os
+
+from extensions import db
+from models.db_connection import DbConnection
+from models.flashback_task import FlashbackTask
 
 
 class FlashbackService:
@@ -35,6 +42,161 @@ class FlashbackService:
             '-output-dir', output_dir,
         ])
         return command, cls.mask_command(command)
+
+    @classmethod
+    def get_task_list(cls, page=1, per_page=10, database_name='', table_name='', status='', sql_type='', work_type=''):
+        query = FlashbackTask.query
+
+        if database_name:
+            query = query.filter(FlashbackTask.database_name.like(f'%{database_name}%'))
+        if table_name:
+            query = query.filter(FlashbackTask.table_name.like(f'%{table_name}%'))
+        if status:
+            query = query.filter(FlashbackTask.status == status)
+        if sql_type:
+            query = query.filter(FlashbackTask.sql_type == sql_type)
+        if work_type:
+            query = query.filter(FlashbackTask.work_type == work_type)
+
+        total = query.count()
+        tasks = query.order_by(FlashbackTask.created_at.desc(), FlashbackTask.id.desc()).paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False,
+        )
+
+        total_pages = (total + per_page - 1) // per_page if total else 1
+        return {
+            'items': [task.to_dict() for task in tasks.items],
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': total_pages,
+                'has_prev': page > 1,
+                'has_next': page < total_pages,
+                'prev_num': page - 1 if page > 1 else None,
+                'next_num': page + 1 if page < total_pages else None,
+            },
+        }
+
+    @staticmethod
+    def get_task_detail(task_id):
+        task = db.session.get(FlashbackTask, task_id)
+        if not task:
+            return None
+        return task.to_dict()
+
+    @classmethod
+    def create_task(cls, data, current_user=None):
+        try:
+            required_fields = ['db_connection_id', 'database_name', 'table_name', 'sql_type', 'work_type']
+            for field in required_fields:
+                if field not in data or data[field] in (None, ''):
+                    return None, f'{field} 是必填字段'
+
+            db_connection = db.session.get(DbConnection, int(data['db_connection_id']))
+            if not db_connection or db_connection.is_enabled == 0:
+                return None, '数据库连接不存在或已禁用'
+
+            task = FlashbackTask(
+                db_connection_id=db_connection.id,
+                connection_id=db_connection.id,
+                connection_name=db_connection.connection_name,
+                database_name=data['database_name'],
+                table_name=data['table_name'],
+                mode='repl',
+                sql_type=data['sql_type'],
+                work_type=data['work_type'],
+                start_datetime=data.get('start_datetime'),
+                stop_datetime=data.get('stop_datetime'),
+                start_file=data.get('start_file'),
+                stop_file=data.get('stop_file'),
+                status='queued',
+                progress=0,
+                creator_user_id=current_user.id if current_user else None,
+                creator_employee_no=current_user.employee_no if current_user else None,
+            )
+
+            db.session.add(task)
+            db.session.commit()
+
+            cls._run_task_async(task.id)
+            return task.to_dict(), None
+        except Exception as exc:
+            db.session.rollback()
+            return None, str(exc)
+
+    @classmethod
+    def _run_task_async(cls, task_id):
+        from app import app
+
+        def _worker():
+            with app.app_context():
+                cls._execute_task(task_id)
+
+        thread = threading.Thread(target=_worker, daemon=True)
+        thread.start()
+
+    @classmethod
+    def _execute_task(cls, task_id):
+        task = db.session.get(FlashbackTask, task_id)
+        if not task:
+            return
+
+        connection = db.session.get(DbConnection, task.db_connection_id)
+        if not connection or connection.is_enabled == 0:
+            cls._mark_failed(task, '数据库连接不存在或已禁用')
+            return
+
+        task_dir = os.path.join(cls.OUTPUT_ROOT, str(task.id))
+        output_dir = os.path.join(task_dir, 'output')
+        log_file = os.path.join(task_dir, 'run.log')
+        os.makedirs(output_dir, exist_ok=True)
+
+        command, masked_command = cls.build_command(task, connection, output_dir)
+        task.output_dir = output_dir
+        task.log_file = log_file
+        task.status = 'running'
+        task.progress = 30
+        task.started_at = datetime.now()
+        task.masked_command = masked_command
+        task.error_message = None
+        db.session.commit()
+
+        try:
+            with open(log_file, 'a', encoding='utf-8') as log_fp:
+                process = subprocess.Popen(command, stdout=log_fp, stderr=log_fp, text=True)
+                return_code = process.wait()
+
+            if return_code != 0:
+                task.status = 'failed'
+                task.progress = 100
+                task.finished_at = datetime.now()
+                task.error_message = f'命令执行失败，退出码: {return_code}'
+                db.session.commit()
+                return
+
+            artifacts = cls.collect_artifacts(output_dir)
+            task.set_artifacts(artifacts)
+            task.status = 'completed'
+            task.progress = 100
+            task.finished_at = datetime.now()
+            task.error_message = None
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            task = db.session.get(FlashbackTask, task_id)
+            if task:
+                cls._mark_failed(task, str(exc))
+
+    @staticmethod
+    def _mark_failed(task, error_message):
+        task.status = 'failed'
+        task.progress = 100
+        task.error_message = error_message
+        task.finished_at = datetime.now()
+        db.session.commit()
 
     @staticmethod
     def mask_command(command):

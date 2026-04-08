@@ -26,6 +26,7 @@ from services.sql_metadata_service import SQLMetadataService
 from services.archive_service import ArchiveService
 from services.cron_service import CronService
 from services.execution_log_service import ExecutionLogService
+from services.flashback_service import FlashbackService
 from services.optimization_task_service import OptimizationTaskService
 from services.pt_archiver import PTArchiver
 from services.scheduler_service import SchedulerService
@@ -467,6 +468,53 @@ def get_optimization_task_detail(current_user, id):
     task = OptimizationTaskService.get_task_detail(id, current_user=current_user)
     if not task:
         return error_response('优化任务不存在', 404)
+    return success_response(task)
+
+
+@app.route('/api/flashback-tasks', methods=['GET'])
+@admin_required
+def get_flashback_tasks(current_user):
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    database_name = request.args.get('database_name', '')
+    table_name = request.args.get('table_name', '')
+    status = request.args.get('status', '')
+    sql_type = request.args.get('sql_type', '')
+    work_type = request.args.get('work_type', '')
+
+    data = FlashbackService.get_task_list(
+        page=page,
+        per_page=per_page,
+        database_name=database_name,
+        table_name=table_name,
+        status=status,
+        sql_type=sql_type,
+        work_type=work_type,
+    )
+    return success_response(data)
+
+
+@app.route('/api/flashback-tasks', methods=['POST'])
+@admin_required
+def create_flashback_task(current_user):
+    payload = request.get_json(silent=True) or {}
+    required_fields = ['db_connection_id', 'database_name', 'table_name', 'sql_type', 'work_type']
+    for field in required_fields:
+        if field not in payload or not payload[field]:
+            return error_response(f'{field} 是必填字段', 400)
+
+    task, error = FlashbackService.create_task(payload, current_user=current_user)
+    if error:
+        return error_response(error, 400)
+    return success_response(task)
+
+
+@app.route('/api/flashback-tasks/<int:id>', methods=['GET'])
+@admin_required
+def get_flashback_task_detail(current_user, id):
+    task = FlashbackService.get_task_detail(id)
+    if not task:
+        return error_response('任务不存在', 404)
     return success_response(task)
 
 
