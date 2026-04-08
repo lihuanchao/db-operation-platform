@@ -198,6 +198,73 @@ export interface ArchiveTaskListResponse {
   per_page: number
 }
 
+export type FlashbackTaskStatus = 'queued' | 'running' | 'completed' | 'failed'
+export type FlashbackSqlType = 'delete' | 'insert' | 'update'
+export type FlashbackWorkType = '2sql' | 'rollback' | 'stats'
+
+export interface FlashbackTaskArtifact {
+  id: string
+  name: string
+  size: number
+}
+
+export interface FlashbackTask {
+  id: number
+  db_connection_id: number
+  connection_id?: number | null
+  connection_name?: string
+  database_name: string
+  table_name: string
+  mode?: string
+  sql_type: FlashbackSqlType
+  work_type: FlashbackWorkType
+  start_datetime?: string | null
+  stop_datetime?: string | null
+  start_file?: string | null
+  stop_file?: string | null
+  status: FlashbackTaskStatus
+  progress: number
+  output_dir?: string | null
+  log_file?: string | null
+  masked_command?: string | null
+  artifacts: FlashbackTaskArtifact[]
+  error_message?: string | null
+  creator_user_id?: number | null
+  creator_employee_no?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+  _selected?: boolean
+}
+
+export interface FlashbackTaskListQuery {
+  page: number
+  per_page: number
+  database_name?: string
+  table_name?: string
+  status?: FlashbackTaskStatus | ''
+  sql_type?: FlashbackSqlType | ''
+  work_type?: FlashbackWorkType | ''
+}
+
+export interface FlashbackTaskListResponse {
+  items: FlashbackTask[]
+  pagination: PaginationInfo
+}
+
+export interface CreateFlashbackTaskPayload {
+  db_connection_id: number
+  database_name: string
+  table_name: string
+  sql_type: FlashbackSqlType
+  work_type: FlashbackWorkType
+  start_datetime?: string
+  stop_datetime?: string
+  start_file?: string
+  stop_file?: string
+}
+
 export interface CronJob {
   id?: number
   task_id: number
@@ -218,16 +285,18 @@ export interface CronJobListResponse {
 }
 
 export interface ExecutionLog {
-  id?: number
+  id: number
   task_id: number
-  task_name?: string
+  task_name?: string | null
   cron_job_id?: number
   start_time: string
-  end_time?: string
+  end_time?: string | null
   status: number
-  log_file?: string
-  error_message?: string
-  created_at?: string
+  log_type?: ExecutionLogType
+  detail_path?: string
+  log_file?: string | null
+  error_message?: string | null
+  created_at?: string | null
   _selected?: boolean
 }
 
@@ -237,3 +306,5 @@ export interface ExecutionLogListResponse {
   page: number
   per_page: number
 }
+
+export type ExecutionLogType = 'archive' | 'flashback' | 'all' | 'merged'

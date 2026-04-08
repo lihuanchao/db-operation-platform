@@ -2,29 +2,86 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
-  getExecutionLogList,
+  downloadExecutionLog,
   getExecutionLog,
-  downloadExecutionLog
+  getExecutionLogList
 } from '@/api/executionLog'
-import type { ExecutionLog } from '@/types'
+import type { ExecutionLog, ExecutionLogType } from '@/types'
+
+function canTriggerBrowserDownload() {
+  return typeof window !== 'undefined'
+    && typeof window.URL?.createObjectURL === 'function'
+    && typeof document !== 'undefined'
+}
+
+async function saveDownloadResponse(response: any, fileName: string) {
+  if (!response || (response.status !== 200 && response.status !== 304)) {
+    ElMessage.error('下载失败')
+    return null
+  }
+
+  if (!canTriggerBrowserDownload()) {
+    return response
+  }
+
+  const blob = response.data instanceof Blob
+    ? response.data
+    : new Blob([response.data], { type: 'application/octet-stream' })
+  const url = window.URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+
+  try {
+    anchor.href = url
+    anchor.download = fileName
+    document.body.appendChild(anchor)
+    anchor.click()
+    ElMessage.success('日志下载成功')
+    return response
+  } finally {
+    window.URL.revokeObjectURL(url)
+    if (anchor.parentNode) {
+      anchor.parentNode.removeChild(anchor)
+    }
+  }
+}
+
+function resolveDownloadContext(
+  list: ExecutionLog[],
+  currentLog: ExecutionLog | null,
+  logTypeOrId: ExecutionLogType | number,
+  maybeId?: number
+) {
+  if (typeof logTypeOrId === 'number') {
+    const existing = list.find(item => item.id === logTypeOrId) ?? currentLog
+    return {
+      logType: existing?.log_type ?? 'archive',
+      id: logTypeOrId
+    }
+  }
+
+  return {
+    logType: logTypeOrId,
+    id: maybeId
+  }
+}
 
 export const useExecutionLogStore = defineStore('executionLog', () => {
-  // State
   const list = ref<ExecutionLog[]>([])
+  const currentLog = ref<ExecutionLog | null>(null)
   const loading = ref(false)
   const total = ref(0)
   const page = ref(1)
   const perPage = ref(10)
   const filters = ref({
     task_id: undefined as number | undefined,
-    status: undefined as number | undefined
+    task_name: '',
+    status: undefined as number | undefined,
+    log_type: '' as ExecutionLogType | ''
   })
 
-  // Getters
   const hasSelected = computed(() => list.value.some(item => item._selected))
   const selectedIds = computed(() => list.value.filter(item => item._selected).map(item => item.id))
 
-  // Actions
   async function fetchList() {
     loading.value = true
     try {
@@ -49,7 +106,8 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
     try {
       const res = await getExecutionLog(id)
       if (res.data) {
-        return res.data
+        currentLog.value = { ...res.data, _selected: false }
+        return currentLog.value
       }
     } finally {
       loading.value = false
@@ -57,52 +115,17 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
     return null
   }
 
-  async function downloadLog(id: number) {
+  async function downloadLog(logTypeOrId: ExecutionLogType | number, maybeId?: number) {
     loading.value = true
     try {
-      console.log('开始下载日志，ID:', id)
-      const response = await downloadExecutionLog(id)
-      console.log('下载响应:', response)
-
-      // 检查响应是否成功
-      if (response && (response.status === 200 || response.status === 304)) {
-        // 创建下载链接
-        const blob = new Blob([response.data], { type: 'text/plain' })
-        console.log('Blob创建成功，大小:', blob.size)
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `execution_log_${id}.log`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-        ElMessage.success('日志下载成功')
-      } else {
-        console.error('响应状态码错误:', response?.status)
+      const { logType, id } = resolveDownloadContext(list.value, currentLog.value, logTypeOrId, maybeId)
+      if (typeof id !== 'number') {
         ElMessage.error('下载失败')
+        return null
       }
-    } catch (error: any) {
-      console.error('下载出错:', error)
-      // 尝试解析错误响应
-      if (error.response?.data) {
-        try {
-          const reader = new FileReader()
-          reader.onload = (e) => {
-            try {
-              const errorObj = JSON.parse(e.target?.result as string)
-              ElMessage.error(errorObj.error || '下载失败')
-            } catch {
-              ElMessage.error('下载失败')
-            }
-          }
-          reader.readAsText(error.response.data)
-        } catch {
-          ElMessage.error('下载失败')
-        }
-      } else {
-        ElMessage.error(error.message || '下载失败')
-      }
+
+      const response = await downloadExecutionLog(logType, id)
+      return await saveDownloadResponse(response, `${logType}_execution_log_${id}.log`)
     } finally {
       loading.value = false
     }
@@ -116,13 +139,15 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
   function resetFilters() {
     filters.value = {
       task_id: undefined,
-      status: undefined
+      task_name: '',
+      status: undefined,
+      log_type: ''
     }
     page.value = 1
   }
 
   function toggleSelect(id: number) {
-    const item = list.value.find(i => i.id === id)
+    const item = list.value.find(entry => entry.id === id)
     if (item) {
       item._selected = !item._selected
     }
@@ -146,17 +171,15 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
   }
 
   return {
-    // State
     list,
+    currentLog,
     loading,
     total,
     page,
     perPage,
     filters,
-    // Getters
     hasSelected,
     selectedIds,
-    // Actions
     fetchList,
     fetchDetail,
     downloadLog,
