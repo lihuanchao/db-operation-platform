@@ -124,25 +124,25 @@ describe('ArchiveTaskWithCron', () => {
 
   it('loads archive detail route into task context before refreshing the list', async () => {
     routeState.params = { id: '101' }
-    getArchiveTaskListMock.mockResolvedValueOnce(buildArchiveListResponse([buildArchiveTask()]))
+    getArchiveTaskListMock.mockResolvedValueOnce(buildArchiveListResponse([
+      buildArchiveTask({ id: 202, task_name: '订单归档任务-副本' })
+    ]))
 
     const { wrapper, archiveStore } = mountView()
     await flushPromises()
 
     expect(getArchiveTaskMock).toHaveBeenCalledWith(101)
-    expect(getArchiveTaskListMock).toHaveBeenLastCalledWith({
-      page: 1,
-      per_page: 10,
-      task_name: '订单归档任务',
-      source_connection_id: undefined
-    })
-    expect(archiveStore.filters.task_name).toBe('订单归档任务')
+    expect(getArchiveTaskListMock).not.toHaveBeenCalled()
+    expect(archiveStore.filters.task_name).toBe('')
+    expect(wrapper.text()).toContain('订单归档任务')
+    expect(wrapper.text()).not.toContain('订单归档任务-副本')
+    expect(wrapper.text()).toContain('共 1 条')
     expect(wrapper.get('[data-testid="archive-context"]').text()).toContain('订单归档任务')
   })
 
   it('falls back to the normal list when the archive detail id is invalid', async () => {
     routeState.params = { id: '999' }
-    getArchiveTaskMock.mockResolvedValueOnce({ success: true, data: undefined })
+    getArchiveTaskMock.mockRejectedValueOnce(new Error('Request failed with status code 404'))
 
     const { wrapper, archiveStore } = mountView()
     await flushPromises()

@@ -4,7 +4,7 @@
       <div class="page-title-group">
         <h2>归档任务管理</h2>
         <p v-if="locatedTask" class="page-context" data-testid="archive-context">
-          已定位到任务：{{ locatedTask.task_name }}
+          已定位到任务：{{ locatedTask.task_name }}，共 1 条记录
         </p>
       </div>
       <el-button type="primary" @click="handleAddTask">
@@ -42,7 +42,7 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <el-table :data="store.list" v-loading="store.loading" stripe style="width: 100%">
+      <el-table :data="displayRows" v-loading="store.loading" stripe style="width: 100%">
         <el-table-column prop="task_name" label="任务名称" min-width="150" />
         <el-table-column prop="source_connection.connection_name" label="源库连接" min-width="130">
           <template #default="{ row }">
@@ -103,9 +103,9 @@
       </el-table>
 
       <el-pagination
-        v-model:current-page="store.page"
-        v-model:page-size="store.perPage"
-        :total="store.total"
+        :current-page="displayPage"
+        :page-size="displayPerPage"
+        :total="displayTotal"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
         style="margin-top: 20px; justify-content: flex-end"
@@ -360,7 +360,10 @@ const cronFormRules = {
 }
 
 const connectionList = computed(() => connectionStore.list)
-const taskList = computed(() => store.list)
+const displayRows = computed(() => (locatedTask.value ? [locatedTask.value] : store.list))
+const displayTotal = computed(() => (locatedTask.value ? 1 : store.total))
+const displayPage = computed(() => (locatedTask.value ? 1 : store.page))
+const displayPerPage = computed(() => (locatedTask.value ? 1 : store.perPage))
 
 function getCronJobsByTask(taskId: number) {
   return cronStore.list.filter(cron => cron.task_id === taskId)
@@ -382,18 +385,14 @@ async function syncRouteTaskContext() {
 
   const taskId = resolveRouteTaskId()
   if (taskId !== null) {
-    const detail = await store.fetchDetail(taskId)
-    if (detail) {
-      locatedTask.value = detail
-      filters.value = {
-        ...defaultFilters,
-        task_name: detail.task_name
+    try {
+      const detail = await store.fetchDetail(taskId)
+      if (detail) {
+        locatedTask.value = detail
+        return
       }
-      store.setFilters({
-        ...filters.value
-      })
-      await store.fetchList()
-      return
+    } catch {
+      locatedTask.value = null
     }
   }
 
