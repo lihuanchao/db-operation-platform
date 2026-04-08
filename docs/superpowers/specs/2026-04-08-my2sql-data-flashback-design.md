@@ -17,6 +17,8 @@
    - `biglong_trx.txt`
    - 任意一个以 `.sql` 结尾的结果文件
 7. 页面可查看执行日志，并下载日志与结果文件。
+8. 左侧导航中“数据闪回”作为独立一级菜单展示。
+9. “执行日志”作为独立一级菜单展示，并统一查看归档日志与闪回日志。
 
 ### 非目标
 
@@ -36,7 +38,8 @@
    - 数据闪回列表页
    - 创建数据闪回任务页
    - 数据闪回详情页
-5. 交互模式对齐现有“SQL 智能建议”页面风格：列表页作为入口与历史记录中心，创建页负责参数提交，详情页负责结果查看与下载。
+5. 改造现有“执行日志”页面为统一日志中心，同时展示归档日志与闪回日志。
+6. 交互模式对齐现有“SQL 智能建议”页面风格：列表页作为入口与历史记录中心，创建页负责参数提交，详情页负责结果查看与下载。
 
 采用该方案的主要原因：
 
@@ -48,15 +51,59 @@
 
 ### 3.1 导航位置
 
-左侧导航在“归档管理”分组下新增：
+左侧导航调整为独立一级菜单：
 
 1. `归档任务`
 2. `执行日志`
 3. `数据闪回`
 
-仅 `admin` 可见。
+其中：
 
-### 3.2 数据闪回列表页
+1. `归档任务` 保持独立菜单。
+2. `执行日志` 从原归档相关分组中拆出，变为独立菜单。
+3. `数据闪回` 不放入“归档管理”分组，直接作为独立菜单。
+4. 三者均仅 `admin` 可见。
+
+### 3.2 执行日志页
+
+用途：作为统一日志中心，集中查看归档任务执行日志和闪回任务执行日志。
+
+页面结构：
+
+1. 顶部筛选卡片
+   - 日志类型：全部 / 归档日志 / 闪回日志
+   - 任务名称
+   - 执行状态
+   - 创建时间范围
+2. 日志列表卡片
+   - 日志类型
+   - 任务名称
+   - 执行状态
+   - 开始时间
+   - 结束时间
+   - 日志文件
+   - 错误信息
+   - 操作
+
+日志类型说明：
+
+1. `归档日志`：来自现有 `ExecutionLog`
+2. `闪回日志`：由 `FlashbackTask` 映射生成统一日志项
+
+操作项：
+
+1. 查看日志
+2. 下载日志
+
+交互规则：
+
+1. 默认显示全部日志
+2. 支持按日志类型快速筛选
+3. 点击日志可跳转对应任务详情页
+4. 归档日志跳转到归档任务上下文
+5. 闪回日志跳转到闪回任务详情页
+
+### 3.3 数据闪回列表页
 
 用途：展示历史任务、筛选任务、进入创建页、进入详情页。
 
@@ -89,7 +136,7 @@
 1. 查看详情
 2. 下载日志（任务完成或失败后可用）
 
-### 3.3 创建数据闪回任务页
+### 3.4 创建数据闪回任务页
 
 用途：录入参数并提交生成任务。
 
@@ -118,7 +165,7 @@
 2. 立即进入后台执行
 3. 前端跳转任务详情页
 
-### 3.4 数据闪回详情页
+### 3.5 数据闪回详情页
 
 用途：查看任务参数、状态、结果文件与执行日志。
 
@@ -236,6 +283,7 @@
 2. `masked_command` 保存脱敏后的完整命令，供详情页展示与排障。
 3. `progress` 为页面轮询和状态展示预留，阶段值可简化为 `0/30/70/100`。
 4. `connection_id` 用于权限过滤，保持与现有优化任务一致。
+5. 每个 `FlashbackTask` 同时承担一条“闪回日志源记录”的职责，不额外新增独立日志表。
 
 ### artifact_manifest 结构
 
@@ -344,10 +392,59 @@
 6. `GET /api/flashback-tasks/<id>/artifacts`
 7. `GET /api/flashback-tasks/<id>/artifacts/<artifact_id>/download`
 
+调整接口：
+
+1. `GET /api/execution-logs`
+   - 新增 `log_type` 参数：`archive` / `flashback` / 空
+   - 返回统一日志列表
+2. `GET /api/execution-logs/<type>/<id>/log-content`
+   - 支持读取归档日志或闪回日志
+3. `GET /api/execution-logs/<type>/<id>/download`
+   - 支持下载归档日志或闪回日志
+
 权限规则：
 
 1. 首期全部使用 `@admin_required`
 2. 如后续开放普通用户，再复用 `AccessControlService.ensure_connection_access`
+
+### 7.4 统一日志聚合设计
+
+保留现有 `ExecutionLog` 表不动，统一日志页采用“聚合返回”方式：
+
+1. 归档日志来源：
+   - 继续使用现有 `ExecutionLog`
+2. 闪回日志来源：
+   - 直接读取 `FlashbackTask`
+   - 将其映射为统一日志结构
+
+统一日志结构建议字段：
+
+1. `log_type`
+2. `id`
+3. `task_id`
+4. `task_name`
+5. `status`
+6. `start_time`
+7. `end_time`
+8. `log_file`
+9. `error_message`
+10. `detail_path`
+
+映射规则：
+
+1. 归档日志：
+   - `log_type = archive`
+   - `id = execution_log.id`
+   - `task_name = archive_task.task_name`
+2. 闪回日志：
+   - `log_type = flashback`
+   - `id = flashback_task.id`
+   - `task_name = {database_name}.{table_name}`
+   - `start_time = started_at`
+   - `end_time = finished_at`
+   - `log_file = log_file`
+   - `error_message = error_message`
+   - `detail_path = /flashback-tasks/{id}`
 
 ## 8. 校验与异常处理
 
@@ -405,6 +502,8 @@
 4. 详情页文件列表展示测试
 5. 日志查看与下载按钮展示测试
 6. 状态标签展示测试
+7. 执行日志页的归档/闪回统一展示测试
+8. 执行日志页按日志类型筛选测试
 
 ### 回归验证
 
@@ -430,10 +529,13 @@
 4. `frontend/src/types/index.ts`
 5. `frontend/src/api/flashbackTask.ts`（新增）
 6. `frontend/src/stores/flashbackTask.ts`（新增）
-7. `frontend/src/views/FlashbackTaskList.vue`（新增）
-8. `frontend/src/views/FlashbackTaskCreate.vue`（新增）
-9. `frontend/src/views/FlashbackTaskDetail.vue`（新增）
-10. `frontend/src/views/*.spec.ts`（新增或更新）
+7. `frontend/src/api/executionLog.ts`
+8. `frontend/src/stores/executionLog.ts`
+9. `frontend/src/views/ExecutionLogList.vue`
+10. `frontend/src/views/FlashbackTaskList.vue`（新增）
+11. `frontend/src/views/FlashbackTaskCreate.vue`（新增）
+12. `frontend/src/views/FlashbackTaskDetail.vue`（新增）
+13. `frontend/src/views/*.spec.ts`（新增或更新）
 
 ## 12. 交付标准
 
