@@ -284,6 +284,9 @@ export interface CronJobListResponse {
   per_page: number
 }
 
+export type ExecutionLogFilterType = 'archive' | 'flashback' | 'all' | 'merged'
+export type ExecutionLogRouteType = 'archive' | 'flashback'
+
 export interface ExecutionLog {
   id: number
   task_id: number
@@ -292,7 +295,7 @@ export interface ExecutionLog {
   start_time: string
   end_time?: string | null
   status: number
-  log_type?: ExecutionLogType
+  log_type?: ExecutionLogRouteType
   detail_path?: string
   log_file?: string | null
   error_message?: string | null
@@ -306,5 +309,3 @@ export interface ExecutionLogListResponse {
   page: number
   per_page: number
 }
-
-export type ExecutionLogType = 'archive' | 'flashback' | 'all' | 'merged'

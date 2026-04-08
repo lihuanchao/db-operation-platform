@@ -6,7 +6,7 @@ import {
   getExecutionLog,
   getExecutionLogList
 } from '@/api/executionLog'
-import type { ExecutionLog, ExecutionLogType } from '@/types'
+import type { ExecutionLog, ExecutionLogFilterType, ExecutionLogRouteType } from '@/types'
 
 function canTriggerBrowserDownload() {
   return typeof window !== 'undefined'
@@ -48,13 +48,27 @@ async function saveDownloadResponse(response: any, fileName: string) {
 function resolveDownloadContext(
   list: ExecutionLog[],
   currentLog: ExecutionLog | null,
-  logTypeOrId: ExecutionLogType | number,
+  logTypeOrId: ExecutionLogRouteType | number,
   maybeId?: number
-) {
+): { logType: ExecutionLogRouteType; id?: number } {
   if (typeof logTypeOrId === 'number') {
-    const existing = list.find(item => item.id === logTypeOrId) ?? currentLog
+    const existing = list.find(item => item.id === logTypeOrId)
+    if (existing) {
+      return {
+        logType: existing.log_type ?? 'archive',
+        id: logTypeOrId
+      }
+    }
+
+    if (currentLog?.id === logTypeOrId) {
+      return {
+        logType: currentLog.log_type ?? 'archive',
+        id: logTypeOrId
+      }
+    }
+
     return {
-      logType: existing?.log_type ?? 'archive',
+      logType: 'archive',
       id: logTypeOrId
     }
   }
@@ -76,7 +90,7 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
     task_id: undefined as number | undefined,
     task_name: '',
     status: undefined as number | undefined,
-    log_type: '' as ExecutionLogType | ''
+    log_type: '' as ExecutionLogFilterType | ''
   })
 
   const hasSelected = computed(() => list.value.some(item => item._selected))
@@ -115,7 +129,7 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
     return null
   }
 
-  async function downloadLog(logTypeOrId: ExecutionLogType | number, maybeId?: number) {
+  async function downloadLog(logTypeOrId: ExecutionLogRouteType | number, maybeId?: number) {
     loading.value = true
     try {
       const { logType, id } = resolveDownloadContext(list.value, currentLog.value, logTypeOrId, maybeId)
@@ -124,8 +138,14 @@ export const useExecutionLogStore = defineStore('executionLog', () => {
         return null
       }
 
-      const response = await downloadExecutionLog(logType, id)
-      return await saveDownloadResponse(response, `${logType}_execution_log_${id}.log`)
+      try {
+        const response = await downloadExecutionLog(logType, id)
+        return await saveDownloadResponse(response, `${logType}_execution_log_${id}.log`)
+      } catch (error: any) {
+        const message = error?.response?.data?.error || error?.message || '下载失败'
+        ElMessage.error(message)
+        return null
+      }
     } finally {
       loading.value = false
     }

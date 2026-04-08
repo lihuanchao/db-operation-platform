@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { ElMessage } from 'element-plus'
 
 const {
   getFlashbackTaskListMock,
   getFlashbackTaskMock,
-  createFlashbackTaskMock
+  createFlashbackTaskMock,
+  downloadFlashbackTaskArtifactMock,
+  downloadFlashbackTaskLogMock,
+  getFlashbackTaskLogContentMock
 } = vi.hoisted(() => ({
   getFlashbackTaskListMock: vi.fn(),
   getFlashbackTaskMock: vi.fn(),
-  createFlashbackTaskMock: vi.fn()
+  createFlashbackTaskMock: vi.fn(),
+  downloadFlashbackTaskArtifactMock: vi.fn(),
+  downloadFlashbackTaskLogMock: vi.fn(),
+  getFlashbackTaskLogContentMock: vi.fn()
 }))
 
 vi.mock('@/api/flashbackTask', () => ({
@@ -16,9 +23,9 @@ vi.mock('@/api/flashbackTask', () => ({
   getFlashbackTask: getFlashbackTaskMock,
   createFlashbackTask: createFlashbackTaskMock,
   getFlashbackTaskArtifacts: vi.fn(),
-  downloadFlashbackTaskArtifact: vi.fn(),
-  getFlashbackTaskLogContent: vi.fn(),
-  downloadFlashbackTaskLog: vi.fn()
+  downloadFlashbackTaskArtifact: downloadFlashbackTaskArtifactMock,
+  getFlashbackTaskLogContent: getFlashbackTaskLogContentMock,
+  downloadFlashbackTaskLog: downloadFlashbackTaskLogMock
 }))
 
 import { useFlashbackTaskStore } from './flashbackTask'
@@ -164,5 +171,45 @@ describe('flashback task store', () => {
     expect(created?.id).toBe(88)
     expect(store.currentTask?.id).toBe(88)
     expect(store.formLoading).toBe(false)
+  })
+
+  it('downloads flashback task artifacts without throwing on failure', async () => {
+    const errorSpy = vi.spyOn(ElMessage, 'error').mockImplementation(() => undefined as any)
+    downloadFlashbackTaskArtifactMock.mockRejectedValueOnce(new Error('download failed'))
+
+    const store = useFlashbackTaskStore()
+    await expect(store.downloadArtifact(11, 'result-sql')).resolves.toBeNull()
+
+    expect(downloadFlashbackTaskArtifactMock).toHaveBeenCalledWith(11, 'result-sql')
+    expect(errorSpy).toHaveBeenCalledWith('download failed')
+    errorSpy.mockRestore()
+  })
+
+  it('downloads flashback task logs without throwing on failure', async () => {
+    const errorSpy = vi.spyOn(ElMessage, 'error').mockImplementation(() => undefined as any)
+    downloadFlashbackTaskLogMock.mockRejectedValueOnce(new Error('download failed'))
+
+    const store = useFlashbackTaskStore()
+    await expect(store.downloadLog(11)).resolves.toBeNull()
+
+    expect(downloadFlashbackTaskLogMock).toHaveBeenCalledWith(11)
+    expect(errorSpy).toHaveBeenCalledWith('download failed')
+    errorSpy.mockRestore()
+  })
+
+  it('fetches flashback log content through the store', async () => {
+    getFlashbackTaskLogContentMock.mockResolvedValueOnce({
+      success: true,
+      data: {
+        content: 'flashback log content',
+        has_file: true
+      }
+    })
+
+    const store = useFlashbackTaskStore()
+    const result = await store.fetchLogContent(11)
+
+    expect(getFlashbackTaskLogContentMock).toHaveBeenCalledWith(11)
+    expect(result?.content).toBe('flashback log content')
   })
 })

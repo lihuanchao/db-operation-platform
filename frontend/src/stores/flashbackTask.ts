@@ -7,6 +7,7 @@ import {
   downloadFlashbackTaskLog,
   getFlashbackTask,
   getFlashbackTaskArtifacts,
+  getFlashbackTaskLogContent,
   getFlashbackTaskList
 } from '@/api/flashbackTask'
 import type {
@@ -148,10 +149,16 @@ export const useFlashbackTaskStore = defineStore('flashbackTask', () => {
   async function downloadArtifact(taskId: number, artifactId: string) {
     loading.value = true
     try {
-      const response = await downloadFlashbackTaskArtifact(taskId, artifactId)
-      const artifact = artifacts.value.find(item => item.id === artifactId)
-        ?? currentTask.value?.artifacts.find(item => item.id === artifactId)
-      return await saveDownloadResponse(response, artifact?.name || artifactId)
+      try {
+        const response = await downloadFlashbackTaskArtifact(taskId, artifactId)
+        const artifact = artifacts.value.find(item => item.id === artifactId)
+          ?? currentTask.value?.artifacts.find(item => item.id === artifactId)
+        return await saveDownloadResponse(response, artifact?.name || artifactId)
+      } catch (error: any) {
+        const message = error?.response?.data?.error || error?.message || '下载失败'
+        ElMessage.error(message)
+        return null
+      }
     } finally {
       loading.value = false
     }
@@ -160,8 +167,27 @@ export const useFlashbackTaskStore = defineStore('flashbackTask', () => {
   async function downloadLog(taskId: number) {
     loading.value = true
     try {
-      const response = await downloadFlashbackTaskLog(taskId)
-      return await saveDownloadResponse(response, `flashback_task_${taskId}.log`)
+      try {
+        const response = await downloadFlashbackTaskLog(taskId)
+        return await saveDownloadResponse(response, `flashback_task_${taskId}.log`)
+      } catch (error: any) {
+        const message = error?.response?.data?.error || error?.message || '下载失败'
+        ElMessage.error(message)
+        return null
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchLogContent(taskId: number) {
+    loading.value = true
+    try {
+      const res = await getFlashbackTaskLogContent(taskId)
+      if (res.data) {
+        return res.data
+      }
+      return null
     } finally {
       loading.value = false
     }
@@ -223,6 +249,7 @@ export const useFlashbackTaskStore = defineStore('flashbackTask', () => {
     fetchList,
     fetchDetail,
     fetchArtifacts,
+    fetchLogContent,
     createTask,
     downloadArtifact,
     downloadLog,

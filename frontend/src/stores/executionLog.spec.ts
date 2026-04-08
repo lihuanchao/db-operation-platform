@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { ElMessage } from 'element-plus'
 
 const {
   getExecutionLogListMock,
@@ -19,6 +20,7 @@ vi.mock('@/api/executionLog', () => ({
 }))
 
 import { useExecutionLogStore } from './executionLog'
+import { downloadExecutionLog, getLogContent } from '@/api/executionLog'
 
 function buildLog(overrides: Record<string, unknown> = {}) {
   return {
@@ -95,6 +97,18 @@ describe('execution log store', () => {
     expect(downloadExecutionLogMock).toHaveBeenCalledWith('flashback', 11)
   })
 
+  it('swallows download failures and shows an error message', async () => {
+    const errorSpy = vi.spyOn(ElMessage, 'error').mockImplementation(() => undefined as any)
+    downloadExecutionLogMock.mockRejectedValueOnce(new Error('download failed'))
+
+    const store = useExecutionLogStore()
+    await expect(store.downloadLog('flashback', 11)).resolves.toBeNull()
+
+    expect(downloadExecutionLogMock).toHaveBeenCalledWith('flashback', 11)
+    expect(errorSpy).toHaveBeenCalledWith('download failed')
+    errorSpy.mockRestore()
+  })
+
   it('supports the existing detail fetch contract', async () => {
     getExecutionLogMock.mockResolvedValueOnce({
       success: true,
@@ -106,5 +120,12 @@ describe('execution log store', () => {
 
     expect(getExecutionLogMock).toHaveBeenCalledWith(44)
     expect(detail?.id).toBe(44)
+  })
+
+  it('rejects merged and all when using typed log routes', async () => {
+    const { downloadExecutionLog: realDownloadExecutionLog, getLogContent: realGetLogContent } = await vi.importActual<typeof import('@/api/executionLog')>('@/api/executionLog')
+
+    await expect(realDownloadExecutionLog('merged' as any, 11)).rejects.toThrow('日志类型不存在')
+    await expect(realGetLogContent('all' as any, 11)).rejects.toThrow('日志类型不存在')
   })
 })

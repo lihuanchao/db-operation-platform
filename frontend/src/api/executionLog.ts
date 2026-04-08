@@ -4,7 +4,8 @@ import type {
   ApiResponse,
   ExecutionLog,
   ExecutionLogListResponse,
-  ExecutionLogType
+  ExecutionLogFilterType,
+  ExecutionLogRouteType
 } from '@/types'
 
 const downloadHeaders = {
@@ -19,7 +20,7 @@ export const getExecutionLogList = (params?: {
   task_id?: number
   task_name?: string
   status?: number
-  log_type?: ExecutionLogType | ''
+  log_type?: ExecutionLogFilterType | ''
 }) => {
   return request.get<ExecutionLogListResponse, ApiResponse<ExecutionLogListResponse>>('/execution-logs', { params })
 }
@@ -29,9 +30,9 @@ export const getExecutionLog = (id: number) => {
 }
 
 export function downloadExecutionLog(id: number): Promise<any>
-export function downloadExecutionLog(logType: ExecutionLogType, id: number, options?: { artifactId?: string }): Promise<any>
+export function downloadExecutionLog(logType: ExecutionLogRouteType, id: number, options?: { artifactId?: string }): Promise<any>
 export function downloadExecutionLog(
-  logTypeOrId: ExecutionLogType | number,
+  logTypeOrId: ExecutionLogRouteType | number,
   idOrOptions?: number | { artifactId?: string },
   options?: { artifactId?: string }
 ) {
@@ -40,6 +41,10 @@ export function downloadExecutionLog(
       responseType: 'blob',
       headers: downloadHeaders
     })
+  }
+
+  if (logTypeOrId !== 'archive' && logTypeOrId !== 'flashback') {
+    return Promise.reject(new Error('日志类型不存在'))
   }
 
   const id = typeof idOrOptions === 'number' ? idOrOptions : undefined
@@ -58,12 +63,16 @@ export function downloadExecutionLog(
 }
 
 export function getLogContent(id: number): Promise<ApiResponse<{ content: string; has_file: boolean }>>
-export function getLogContent(logType: ExecutionLogType, id: number): Promise<ApiResponse<{ content: string; has_file: boolean }>>
-export function getLogContent(logTypeOrId: ExecutionLogType | number, id?: number) {
+export function getLogContent(logType: ExecutionLogRouteType, id: number): Promise<ApiResponse<{ content: string; has_file: boolean }>>
+export function getLogContent(logTypeOrId: ExecutionLogRouteType | number, id?: number) {
   if (typeof logTypeOrId === 'number') {
     return request.get<{ content: string; has_file: boolean }, ApiResponse<{ content: string; has_file: boolean }>>(
       `/execution-logs/${logTypeOrId}/log-content`
     )
+  }
+
+  if (logTypeOrId !== 'archive' && logTypeOrId !== 'flashback') {
+    return Promise.reject(new Error('日志类型不存在'))
   }
 
   if (!id) {
