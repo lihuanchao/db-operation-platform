@@ -22,6 +22,8 @@
           <el-descriptions-item label="mode">{{ task.mode || 'repl' }}</el-descriptions-item>
           <el-descriptions-item label="SQL 类型">{{ task.sql_type }}</el-descriptions-item>
           <el-descriptions-item label="输出类型">{{ task.work_type }}</el-descriptions-item>
+          <el-descriptions-item label="起始时间">{{ task.start_datetime || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="结束时间">{{ task.stop_datetime || '-' }}</el-descriptions-item>
           <el-descriptions-item label="起始日志文件">{{ task.start_file || '-' }}</el-descriptions-item>
           <el-descriptions-item label="结束日志文件">{{ task.stop_file || '-' }}</el-descriptions-item>
           <el-descriptions-item label="创建人">{{ task.creator_employee_no || '-' }}</el-descriptions-item>
@@ -131,6 +133,9 @@ const artifactList = computed(() => {
 
 onMounted(async () => {
   if (!taskId.value) return
+  if (!authStore.authorizedConnections.length) {
+    await authStore.fetchAuthorizedConnections()
+  }
   await refreshDetail(taskId.value)
   await refreshLog(taskId.value)
 })

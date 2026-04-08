@@ -21,7 +21,8 @@ const {
         host: '10.0.0.11',
         port: 3306
       }
-    ]
+    ],
+    fetchAuthorizedConnections: vi.fn()
   },
   getFlashbackTaskMock: vi.fn(),
   getFlashbackTaskLogContentMock: vi.fn(),
@@ -68,6 +69,8 @@ function buildTask(overrides: Partial<FlashbackTask> = {}): FlashbackTask {
     work_type: '2sql',
     start_file: 'mysql-bin.000001',
     stop_file: 'mysql-bin.000002',
+    start_datetime: '2026-04-08 10:00:00',
+    stop_datetime: '2026-04-08 10:05:00',
     creator_employee_no: 'E0001',
     started_at: '2026-04-08 10:00:10',
     finished_at: '2026-04-08 10:04:10',
@@ -114,6 +117,7 @@ describe('FlashbackTaskDetail', () => {
         port: 3306
       }
     ]
+    authStoreState.fetchAuthorizedConnections.mockResolvedValue(undefined)
 
     getFlashbackTaskMock.mockResolvedValue({
       success: true,
@@ -164,6 +168,8 @@ describe('FlashbackTaskDetail', () => {
     expect(wrapper.text()).toContain('biglong_trx.txt')
     expect(wrapper.text()).toContain('orders.sql')
     expect(wrapper.text()).toContain('10.0.0.11:3306')
+    expect(wrapper.text()).toContain('2026-04-08 10:00:00')
+    expect(wrapper.text()).toContain('2026-04-08 10:05:00')
     expect(wrapper.text()).toContain('mysql-bin.000001')
     expect(wrapper.text()).toContain('mysql-bin.000002')
     expect(wrapper.text()).toContain('E0001')
@@ -179,6 +185,30 @@ describe('FlashbackTaskDetail', () => {
     expect(getFlashbackTaskLogContentMock).toHaveBeenCalledTimes(2)
     expect(downloadFlashbackTaskArtifactMock).toHaveBeenCalledWith(11, 'sql')
     expect(downloadFlashbackTaskLogMock).toHaveBeenCalledWith(11)
+  })
+
+  it('loads connections when the list is empty before resolving host and port', async () => {
+    authStoreState.authorizedConnections = []
+    authStoreState.fetchAuthorizedConnections.mockImplementationOnce(async () => {
+      authStoreState.authorizedConnections = [
+        {
+          id: 1,
+          connection_name: '订单库',
+          host: '10.0.0.11',
+          port: 3306
+        }
+      ]
+    })
+    getFlashbackTaskMock.mockResolvedValueOnce({
+      success: true,
+      data: buildTask()
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(authStoreState.fetchAuthorizedConnections).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('10.0.0.11:3306')
   })
 
   it('starts polling while the task is queued or running', async () => {
