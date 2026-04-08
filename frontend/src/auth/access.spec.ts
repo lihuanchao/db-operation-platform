@@ -20,4 +20,12 @@ describe('access helpers', () => {
   it('allows admin to access admin pages', () => {
     expect(canAccessPath('admin', '/permissions')).toBe(true)
   })
+
+  it('shows unified log center and flashback menus for admin', () => {
+    const menus = getVisibleMenus('admin').map((item) => item.path)
+
+    expect(menus).toContain('/execution-logs')
+    expect(menus).toContain('/flashback-tasks')
+    expect(canAccessPath('admin', '/flashback-tasks/22')).toBe(true)
+  })
 })

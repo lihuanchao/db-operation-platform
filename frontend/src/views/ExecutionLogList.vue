@@ -1,112 +1,139 @@
 <template>
   <AppLayout>
-    <div class="page-header">
-      <h2>执行日志</h2>
+    <div class="page-shell">
+      <div class="page-header">
+        <div>
+          <h2>执行日志</h2>
+          <p>统一查看归档任务和数据闪回的执行结果与日志文件。</p>
+        </div>
+      </div>
+
+      <el-card shadow="never" class="filter-card">
+        <el-form :model="filters" inline class="filter-form">
+          <el-form-item label="日志类型">
+            <el-select v-model="filters.log_type" class="filter-control" placeholder="请选择日志类型">
+              <el-option label="全部日志" value="all" />
+              <el-option label="归档任务" value="archive" />
+              <el-option label="数据闪回" value="flashback" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="任务名称">
+            <el-input
+              v-model="filters.task_name"
+              class="filter-control filter-control--wide"
+              clearable
+              placeholder="请输入任务名称"
+              @keyup.enter="handleSearch"
+            />
+          </el-form-item>
+          <el-form-item label="执行状态">
+            <el-select v-model="filters.status" class="filter-control" placeholder="请选择执行状态" clearable>
+              <el-option label="失败" :value="0" />
+              <el-option label="成功" :value="1" />
+              <el-option label="执行中" :value="2" />
+            </el-select>
+          </el-form-item>
+          <el-form-item class="filter-actions">
+            <el-button type="primary" @click="handleSearch">
+              <el-icon><Search /></el-icon>
+              搜索
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><Refresh /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <el-card shadow="never" class="table-card">
+        <el-table :data="store.list" v-loading="store.loading" stripe class="log-table">
+          <el-table-column label="日志类型" width="120">
+            <template #default="{ row }">
+              <el-tag size="small" effect="plain" class="log-type-tag">
+                {{ getLogTypeText(row.log_type) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="task_name" label="任务名称" min-width="240">
+            <template #default="{ row }">
+              <el-button
+                v-if="row.detail_path"
+                link
+                type="primary"
+                class="task-link"
+                :data-detail-path="row.detail_path"
+                @click="navigateToDetail(row.detail_path)"
+              >
+                {{ row.task_name || '-' }}
+              </el-button>
+              <span v-else>{{ row.task_name || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="执行状态" width="120">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" size="small">
+                {{ getStatusText(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="start_time" label="开始时间" width="180" />
+          <el-table-column prop="end_time" label="结束时间" width="180">
+            <template #default="{ row }">
+              {{ row.end_time || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="log_file" label="日志文件" min-width="220">
+            <template #default="{ row }">
+              <span class="mono-text">{{ row.log_file || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="error_message" label="错误信息" min-width="220">
+            <template #default="{ row }">
+              <el-tooltip v-if="row.error_message" :content="row.error_message" placement="top">
+                <span class="error-message">{{ row.error_message }}</span>
+              </el-tooltip>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="160" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                link
+                type="primary"
+                size="small"
+                @click="handleViewLog(row)"
+              >
+                <el-icon><View /></el-icon>
+                查看日志
+              </el-button>
+              <el-button
+                v-if="row.log_file"
+                link
+                type="primary"
+                size="small"
+                @click="handleDownload(row)"
+              >
+                <el-icon><Download /></el-icon>
+                下载
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-pagination
+          v-model:current-page="store.page"
+          v-model:page-size="store.perPage"
+          :total="store.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          class="table-pagination"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </el-card>
     </div>
 
-    <el-card shadow="never" class="filter-card">
-      <el-form :model="filters" inline>
-        <el-form-item label="归档任务">
-          <el-select v-model="filters.task_id" placeholder="请选择归档任务" clearable style="width: 250px">
-            <el-option
-              v-for="task in taskList"
-              :key="task.id"
-              :label="task.task_name"
-              :value="task.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="执行状态">
-          <el-select v-model="filters.status" placeholder="请选择执行状态" clearable style="width: 150px">
-            <el-option label="失败" :value="0" />
-            <el-option label="成功" :value="1" />
-            <el-option label="执行中" :value="2" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">
-            <el-icon><Search /></el-icon>
-            搜索
-          </el-button>
-          <el-button @click="handleReset">
-            <el-icon><Refresh /></el-icon>
-            重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card shadow="never" class="table-card">
-      <el-table :data="store.list" v-loading="store.loading" stripe style="width: 100%">
-        <el-table-column prop="task_name" label="任务名称" width="200">
-          <template #default="{ row }">
-            {{ row.task_name || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="执行状态" width="120">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
-              {{ getStatusText(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="start_time" label="开始时间" width="180" />
-        <el-table-column prop="end_time" label="结束时间" width="180">
-          <template #default="{ row }">
-            {{ row.end_time || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="log_file" label="日志文件">
-          <template #default="{ row }">
-            {{ row.log_file || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="error_message" label="错误信息" min-width="200">
-          <template #default="{ row }">
-            <el-tooltip v-if="row.error_message" :content="row.error_message" placement="top">
-              <span class="error-message">{{ row.error_message }}</span>
-            </el-tooltip>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              link
-              type="primary"
-              size="small"
-              @click="handleViewLog(row)"
-            >
-              <el-icon><View /></el-icon>
-              查看日志
-            </el-button>
-            <el-button
-              v-if="row.log_file"
-              link
-              type="primary"
-              size="small"
-              @click="handleDownload(row)"
-            >
-              <el-icon><Download /></el-icon>
-              下载日志
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <el-pagination
-        v-model:current-page="store.page"
-        v-model:page-size="store.perPage"
-        :total="store.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        style="margin-top: 20px; justify-content: flex-end"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
-    </el-card>
-
-    <!-- 查看日志对话框 -->
     <el-dialog
       v-model="logDialogVisible"
       title="执行日志"
@@ -130,20 +157,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted } from 'vue'
-import { Search, Refresh, Download, View } from '@element-plus/icons-vue'
+import { onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { Download, Refresh, Search, View } from '@element-plus/icons-vue'
 import AppLayout from '@/components/Layout/AppLayout.vue'
-import { useExecutionLogStore } from '@/stores/executionLog'
-import { useArchiveTaskStore } from '@/stores/archiveTask'
 import { getLogContent } from '@/api/executionLog'
-import type { ExecutionLog, ArchiveTask } from '@/types'
+import { useExecutionLogStore } from '@/stores/executionLog'
+import type { ExecutionLog, ExecutionLogFilterType, ExecutionLogRouteType } from '@/types'
 
 const store = useExecutionLogStore()
-const taskStore = useArchiveTaskStore()
+const router = useRouter()
+
+const defaultFilters = {
+  log_type: 'all' as ExecutionLogFilterType,
+  task_name: '',
+  status: undefined as number | undefined
+}
 
 const filters = ref({
-  task_id: undefined as number | undefined,
-  status: undefined as number | undefined
+  ...defaultFilters
 })
 
 const logDialogVisible = ref(false)
@@ -152,13 +184,9 @@ const logContent = ref('')
 const refreshingLog = ref(false)
 let refreshInterval: number | null = null
 
-const taskList = computed(() => taskStore.list)
-
 onMounted(async () => {
-  await Promise.all([
-    store.fetchList(),
-    taskStore.fetchList()
-  ])
+  store.setFilters(filters.value)
+  await store.fetchList()
 })
 
 onUnmounted(() => {
@@ -166,6 +194,10 @@ onUnmounted(() => {
     clearInterval(refreshInterval)
   }
 })
+
+function getLogTypeText(logType?: ExecutionLogRouteType) {
+  return logType === 'flashback' ? '数据闪回' : '归档任务'
+}
 
 function getStatusType(status: number) {
   switch (status) {
@@ -189,12 +221,15 @@ function getStatusText(status: number) {
   }
 }
 
+function navigateToDetail(detailPath: string) {
+  router.push(detailPath)
+}
+
 async function handleViewLog(row: ExecutionLog) {
   currentLog.value = row
   logDialogVisible.value = true
   await refreshLogContent()
 
-  // 如果正在执行，定时刷新日志
   if (refreshInterval) {
     clearInterval(refreshInterval)
   }
@@ -204,19 +239,22 @@ async function handleViewLog(row: ExecutionLog) {
 }
 
 async function refreshLogContent() {
-  if (!currentLog.value?.id) return
+  const logId = currentLog.value?.id
+  if (!logId) return
 
   refreshingLog.value = true
   try {
-    const response = await getLogContent(currentLog.value.id)
+    const logType = currentLog.value?.log_type ?? 'archive'
+    const response = await getLogContent(logType, logId)
     if (response.success && response.data) {
       logContent.value = response.data.content || ''
 
-      // 更新当前日志状态
       await store.fetchList()
 
-      // 检查是否还在执行中
-      const updatedLog = store.list.find(log => log.id === currentLog.value?.id)
+      const updatedLog = store.list.find((log) => log.id === logId)
+      if (updatedLog) {
+        currentLog.value = updatedLog
+      }
       if (updatedLog && updatedLog.status !== 2 && refreshInterval) {
         clearInterval(refreshInterval)
         refreshInterval = null
@@ -236,16 +274,15 @@ function handleSearch() {
 
 function handleReset() {
   filters.value = {
-    task_id: undefined,
-    status: undefined
+    ...defaultFilters
   }
-  store.resetFilters()
+  store.setFilters(filters.value)
   store.fetchList()
 }
 
 async function handleDownload(row: ExecutionLog) {
   if (!row.id) return
-  await store.downloadLog(row.id)
+  await store.downloadLog(row.log_type ?? 'archive', row.id)
 }
 
 function handlePageChange(page: number) {
@@ -258,29 +295,83 @@ function handleSizeChange(size: number) {
 </script>
 
 <style scoped>
+.page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-start;
 }
 
 .page-header h2 {
   margin: 0;
   color: #1e3a5f;
+  font-size: 22px;
 }
 
-.filter-card {
-  margin-bottom: 20px;
+.page-header p {
+  margin: 6px 0 0;
+  color: #5f7084;
+  font-size: 13px;
 }
 
+.filter-card,
 .table-card {
-  margin-bottom: 20px;
+  border-radius: 8px;
+}
+
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.filter-control {
+  width: 170px;
+}
+
+.filter-control--wide {
+  width: 240px;
+}
+
+.filter-actions :deep(.el-form-item__content) {
+  gap: 8px;
+}
+
+.log-table :deep(.el-table__cell) {
+  padding: 8px 0;
+}
+
+.log-table :deep(.el-table__body tr:hover > td.el-table__cell) {
+  background: #eef5ff;
+}
+
+.log-type-tag {
+  font-weight: 600;
+}
+
+.task-link {
+  padding: 0;
+  font-weight: 600;
+}
+
+.mono-text {
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+}
+
+.table-pagination {
+  margin-top: 12px;
+  justify-content: flex-end;
 }
 
 .error-message {
   display: block;
-  max-width: 300px;
+  max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -308,10 +399,17 @@ function handleSizeChange(size: number) {
 .log-content pre {
   margin: 0;
   color: #d4d4d4;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: Consolas, Monaco, monospace;
   font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+@media (max-width: 960px) {
+  .filter-control,
+  .filter-control--wide {
+    width: 100%;
+  }
 }
 </style>

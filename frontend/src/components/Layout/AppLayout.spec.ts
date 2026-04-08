@@ -18,6 +18,10 @@ const routes: RouteRecordRaw[] = [
     component: { template: '<div>slow</div>' }
   },
   {
+    path: '/flashback-tasks',
+    component: { template: '<div>flashback</div>' }
+  },
+  {
     path: '/login',
     component: { template: '<div>login</div>' }
   }
@@ -188,5 +192,16 @@ describe('AppLayout', () => {
     const { wrapper } = await mountLayout()
 
     expect(wrapper.find('[data-close-path="/optimization-tasks"]').exists()).toBe(false)
+  })
+
+  it('resolves the flashback tab title from menu metadata', async () => {
+    const { wrapper, layoutStore } = await mountLayout('/flashback-tasks')
+
+    expect(layoutStore.tabs).toContainEqual({
+      path: '/flashback-tasks',
+      title: '数据闪回',
+      closable: true
+    })
+    expect(wrapper.get('[data-tab-path="/flashback-tasks"]').text()).toContain('数据闪回')
   })
 })

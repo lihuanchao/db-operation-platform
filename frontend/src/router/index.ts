@@ -61,6 +61,21 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/ExecutionLogList.vue')
   },
   {
+    path: '/flashback-tasks',
+    name: 'FlashbackTaskList',
+    component: () => import('@/views/FlashbackTaskList.vue')
+  },
+  {
+    path: '/flashback-tasks/create',
+    name: 'FlashbackTaskCreate',
+    component: () => import('@/views/FlashbackTaskCreate.vue')
+  },
+  {
+    path: '/flashback-tasks/:id',
+    name: 'FlashbackTaskDetail',
+    component: () => import('@/views/FlashbackTaskDetail.vue')
+  },
+  {
     path: '/users',
     name: 'UserManagement',
     component: () => import('@/views/UserManagement.vue')

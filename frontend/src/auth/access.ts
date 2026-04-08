@@ -10,12 +10,13 @@ export interface MenuItem {
 export const MENU_ITEMS: MenuItem[] = [
   { path: '/optimization-tasks', label: 'SQL智能建议', roles: ['admin', 'user'], matchPrefixes: ['/optimization-tasks'] },
   { path: '/slow-sqls', label: '慢SQL管理', roles: ['admin', 'user'], matchPrefixes: ['/slow-sqls', '/slow-sql/'] },
-  { path: '/connections', label: '连接管理', roles: ['admin'], matchPrefixes: ['/connections'] },
   { path: '/archive-tasks', label: '归档任务', roles: ['admin'], matchPrefixes: ['/archive-tasks'] },
   { path: '/execution-logs', label: '执行日志', roles: ['admin'], matchPrefixes: ['/execution-logs'] },
+  { path: '/flashback-tasks', label: '数据闪回', roles: ['admin'], matchPrefixes: ['/flashback-tasks'] },
   { path: '/users', label: '用户管理', roles: ['admin'], matchPrefixes: ['/users'] },
   { path: '/roles', label: '角色管理', roles: ['admin'], matchPrefixes: ['/roles'] },
-  { path: '/permissions', label: '权限管理', roles: ['admin'], matchPrefixes: ['/permissions'] }
+  { path: '/permissions', label: '权限管理', roles: ['admin'], matchPrefixes: ['/permissions'] },
+  { path: '/connections', label: '连接管理', roles: ['admin'], matchPrefixes: ['/connections'] }
 ]
 
 export function getVisibleMenus(roleCode: RoleCode): MenuItem[] {

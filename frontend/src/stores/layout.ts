@@ -186,7 +186,7 @@ export const useLayoutStore = defineStore('layout', () => {
   function setOpenedMenus(menus: string[]) {
     openedMenus.value = Array.from(
       new Set(
-        menus.filter((item) => item === 'archive' || item === 'admin')
+        menus.filter((item) => item === 'admin')
       )
     )
     persistToStorage()

@@ -32,30 +32,35 @@
         <span>慢SQL管理</span>
       </el-menu-item>
 
-      <el-sub-menu v-if="showArchive" index="archive">
-        <template #title>
-          <el-icon><FolderOpened /></el-icon>
-          <span>归档管理</span>
-        </template>
-        <el-menu-item
-          v-if="hasMenu('/archive-tasks')"
-          index="/archive-tasks"
-          data-path="/archive-tasks"
-          @click="navigate('/archive-tasks')"
-        >
-          <el-icon><Tickets /></el-icon>
-          <span>归档任务</span>
-        </el-menu-item>
-        <el-menu-item
-          v-if="hasMenu('/execution-logs')"
-          index="/execution-logs"
-          data-path="/execution-logs"
-          @click="navigate('/execution-logs')"
-        >
-          <el-icon><Document /></el-icon>
-          <span>执行日志</span>
-        </el-menu-item>
-      </el-sub-menu>
+      <el-menu-item
+        v-if="hasMenu('/archive-tasks')"
+        index="/archive-tasks"
+        data-path="/archive-tasks"
+        @click="navigate('/archive-tasks')"
+      >
+        <el-icon><Tickets /></el-icon>
+        <span>归档任务</span>
+      </el-menu-item>
+
+      <el-menu-item
+        v-if="hasMenu('/execution-logs')"
+        index="/execution-logs"
+        data-path="/execution-logs"
+        @click="navigate('/execution-logs')"
+      >
+        <el-icon><Document /></el-icon>
+        <span>执行日志</span>
+      </el-menu-item>
+
+      <el-menu-item
+        v-if="hasMenu('/flashback-tasks')"
+        index="/flashback-tasks"
+        data-path="/flashback-tasks"
+        @click="navigate('/flashback-tasks')"
+      >
+        <el-icon><Refresh /></el-icon>
+        <span>数据闪回</span>
+      </el-menu-item>
 
       <el-sub-menu v-if="showAdmin" index="admin">
         <template #title>
@@ -112,9 +117,9 @@ import {
   Key,
   Opportunity,
   Setting,
-  FolderOpened,
   Document,
   Lock,
+  Refresh,
   Tickets,
   TrendCharts,
   User,
@@ -132,6 +137,7 @@ let suppressAutoOpenUntil = 0
 const activeMenu = computed(() => {
   if (route.path.startsWith('/optimization-tasks')) return '/optimization-tasks'
   if (route.path.startsWith('/slow-sql')) return '/slow-sqls'
+  if (route.path.startsWith('/flashback-tasks')) return '/flashback-tasks'
   if (route.path.startsWith('/users')) return '/users'
   if (route.path.startsWith('/roles')) return '/roles'
   if (route.path.startsWith('/permissions')) return '/permissions'
@@ -140,7 +146,6 @@ const activeMenu = computed(() => {
 
 const visiblePaths = computed(() => new Set(authStore.menus.map((item) => item.path)))
 
-const showArchive = computed(() => hasMenu('/archive-tasks') || hasMenu('/execution-logs'))
 const showAdmin = computed(() => hasMenu('/users') || hasMenu('/roles') || hasMenu('/permissions'))
 
 function hasMenu(path: string) {
@@ -158,10 +163,8 @@ watch(
     suppressAutoOpenUntil = Date.now() + 400
     await nextTick()
     layoutStore.setOpenedMenus([])
-    menuRef.value?.close?.('archive')
     menuRef.value?.close?.('admin')
     setTimeout(() => {
-      menuRef.value?.close?.('archive')
       menuRef.value?.close?.('admin')
     }, 220)
   }

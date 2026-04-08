@@ -110,16 +110,22 @@ describe('Sidebar', () => {
     const { wrapper } = mountSidebar([
       '/optimization-tasks',
       '/archive-tasks',
+      '/execution-logs',
+      '/flashback-tasks',
       '/permissions'
     ])
 
     const text = wrapper.text()
 
     expect(text).toContain('SQL智能建议')
-    expect(text).toContain('归档管理')
     expect(text).toContain('归档任务')
+    expect(text).toContain('执行日志')
+    expect(text).toContain('数据闪回')
     expect(text).toContain('系统管理')
     expect(text).toContain('权限管理')
+    expect(wrapper.find('[data-path="/execution-logs"]').exists()).toBe(true)
+    expect(wrapper.find('[data-path="/flashback-tasks"]').exists()).toBe(true)
+    expect(text).not.toContain('归档管理')
     expect(text).not.toContain('慢SQL管理')
     expect(text).not.toContain('连接管理')
   })
