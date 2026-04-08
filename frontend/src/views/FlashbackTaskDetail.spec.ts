@@ -74,7 +74,7 @@ function buildTask(overrides: Partial<FlashbackTask> = {}): FlashbackTask {
     creator_employee_no: 'E0001',
     started_at: '2026-04-08 10:00:10',
     finished_at: '2026-04-08 10:04:10',
-    masked_command: 'mysqldump --where=***',
+    masked_command: 'mysqldump -h 127.0.0.1 -user repl -password ****** --where=***',
     status: 'queued',
     progress: 20,
     artifacts: [
@@ -175,7 +175,10 @@ describe('FlashbackTaskDetail', () => {
     expect(wrapper.text()).toContain('E0001')
     expect(wrapper.text()).toContain('2026-04-08 10:00:10')
     expect(wrapper.text()).toContain('2026-04-08 10:04:10')
-    expect(wrapper.text()).toContain('mysqldump --where=***')
+    expect(wrapper.text()).toContain('mysqldump -h 127.0.0.1')
+    expect(wrapper.text()).toContain('-user ******')
+    expect(wrapper.text()).toContain('-password ******')
+    expect(wrapper.text()).not.toContain('-user repl')
 
     await wrapper.get('[data-artifact-id="sql"]').trigger('click')
     await wrapper.get('button.refresh-log-btn').trigger('click')

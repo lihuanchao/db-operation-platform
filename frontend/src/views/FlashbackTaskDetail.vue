@@ -41,7 +41,7 @@
             <span>脱敏命令</span>
           </div>
         </template>
-        <pre class="command-text">{{ task?.masked_command || '-' }}</pre>
+        <pre class="command-text">{{ displayCommand || '-' }}</pre>
       </el-card>
 
       <el-card shadow="never" class="artifact-card">
@@ -130,6 +130,7 @@ const artifactList = computed(() => {
 
   return store.currentTask?.artifacts ?? []
 })
+const displayCommand = computed(() => sanitizeCommandPreview(task.value?.masked_command || ''))
 
 onMounted(async () => {
   if (!taskId.value) return
@@ -218,6 +219,16 @@ async function handleDownloadLog() {
 async function handleRefreshLog() {
   if (!taskId.value) return
   await refreshLog(taskId.value)
+}
+
+function sanitizeCommandPreview(command: string) {
+  if (!command) {
+    return ''
+  }
+
+  return command
+    .replace(/(^|\s)-user(\s+)(\S+)/g, '$1-user$2******')
+    .replace(/(^|\s)-u(\s+)(\S+)/g, '$1-u$2******')
 }
 </script>
 
