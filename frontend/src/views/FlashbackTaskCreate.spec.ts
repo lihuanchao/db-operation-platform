@@ -124,7 +124,31 @@ describe('FlashbackTaskCreate', () => {
     expect(createFlashbackTaskMock).not.toHaveBeenCalled()
   })
 
-  it('submits required fields and navigates to the task detail page', async () => {
+  it('submits the minimal required fields and navigates to the task detail page', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const select = wrapper.findComponent({ name: 'ElSelect' })
+    select.vm.$emit('update:modelValue', 9)
+    await flushPromises()
+
+    await wrapper.get('input[placeholder="数据库名"]').setValue('sales')
+    await wrapper.get('input[placeholder="表名"]').setValue('orders')
+
+    await wrapper.get('button.submit-btn').trigger('click')
+    await flushPromises()
+
+    expect(createFlashbackTaskMock).toHaveBeenCalledWith({
+      db_connection_id: 9,
+      database_name: 'sales',
+      table_name: 'orders',
+      sql_type: 'delete',
+      work_type: '2sql'
+    })
+    expect(pushMock).toHaveBeenLastCalledWith('/flashback-tasks/88')
+  })
+
+  it('includes optional time and binlog fields when they are provided', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -153,6 +177,5 @@ describe('FlashbackTaskCreate', () => {
       start_file: 'mysql-bin.000001',
       stop_file: 'mysql-bin.000002'
     })
-    expect(pushMock).toHaveBeenLastCalledWith('/flashback-tasks/88')
   })
 })

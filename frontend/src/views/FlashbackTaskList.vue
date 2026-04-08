@@ -261,7 +261,7 @@ function statusText(status: FlashbackTaskStatus) {
   display: inline-flex;
   align-items: center;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: #eef5ff;
   color: #1f5ca8;
   font-size: 12px;

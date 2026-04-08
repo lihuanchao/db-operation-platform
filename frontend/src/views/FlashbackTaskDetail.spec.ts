@@ -54,9 +54,9 @@ function buildTask(overrides: Partial<FlashbackTask> = {}): FlashbackTask {
     status: 'queued',
     progress: 20,
     artifacts: [
-      { id: 'sql', name: 'orders.sql', size: 120 },
-      { id: 'json', name: 'orders.json', size: 220 },
-      { id: 'log', name: 'orders.log', size: 320 }
+      { id: 'status', name: 'binlog_status.txt', size: 120 },
+      { id: 'trx', name: 'biglong_trx.txt', size: 220 },
+      { id: 'sql', name: 'orders.sql', size: 320 }
     ],
     created_at: '2026-04-08 10:00:00',
     updated_at: '2026-04-08 10:01:00',
@@ -130,6 +130,9 @@ describe('FlashbackTaskDetail', () => {
     expect(wrapper.text()).toContain('orders')
     expect(wrapper.text()).toContain('flashback log content')
     expect(wrapper.findAll('[data-artifact-id]')).toHaveLength(3)
+    expect(wrapper.text()).toContain('binlog_status.txt')
+    expect(wrapper.text()).toContain('biglong_trx.txt')
+    expect(wrapper.text()).toContain('orders.sql')
 
     await wrapper.get('[data-artifact-id="sql"]').trigger('click')
     await wrapper.get('button.download-log-btn').trigger('click')

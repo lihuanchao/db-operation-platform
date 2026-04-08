@@ -22,7 +22,7 @@
           <span class="connection-summary__mode">mode: repl</span>
         </div>
 
-        <el-form ref="formRef" :model="formData" :rules="rules" label-position="top" class="create-form">
+        <el-form ref="formRef" :model="formData" label-position="top" class="create-form">
           <el-row :gutter="16">
             <el-col :xs="24" :sm="24" :md="12">
               <el-form-item label="数据库连接" prop="db_connection_id">
@@ -121,9 +121,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import type { FormInstance, FormRules } from 'element-plus'
 import AppLayout from '@/components/Layout/AppLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useFlashbackTaskStore } from '@/stores/flashbackTask'
@@ -132,7 +131,6 @@ import type { FlashbackSqlType, FlashbackWorkType } from '@/types'
 const router = useRouter()
 const authStore = useAuthStore()
 const store = useFlashbackTaskStore()
-const formRef = ref<FormInstance>()
 
 const formData = reactive({
   db_connection_id: undefined as number | undefined,
@@ -145,18 +143,6 @@ const formData = reactive({
   start_file: '',
   stop_file: ''
 })
-
-const rules: FormRules = {
-  db_connection_id: [{ required: true, message: '请选择数据库连接', trigger: 'change' }],
-  database_name: [{ required: true, message: '请输入数据库名', trigger: 'blur' }],
-  table_name: [{ required: true, message: '请输入表名', trigger: 'blur' }],
-  sql_type: [{ required: true, message: '请选择 SQL 类型', trigger: 'change' }],
-  work_type: [{ required: true, message: '请选择输出类型', trigger: 'change' }],
-  start_datetime: [{ required: true, message: '请输入开始时间', trigger: 'blur' }],
-  stop_datetime: [{ required: true, message: '请输入结束时间', trigger: 'blur' }],
-  start_file: [{ required: true, message: '请输入开始 binlog 文件', trigger: 'blur' }],
-  stop_file: [{ required: true, message: '请输入结束 binlog 文件', trigger: 'blur' }]
-}
 
 const selectedConnection = computed(() => {
   return authStore.authorizedConnections.find(item => item.id === formData.db_connection_id) ?? authStore.authorizedConnections[0] ?? null
@@ -185,20 +171,21 @@ function goBack() {
 }
 
 async function handleSubmit() {
-  if (!formRef.value) return
   if (!hasRequiredFields()) return
 
-  const created = await store.createTask({
+  const payload = {
     db_connection_id: formData.db_connection_id as number,
     database_name: formData.database_name.trim(),
     table_name: formData.table_name.trim(),
     sql_type: formData.sql_type,
     work_type: formData.work_type,
-    start_datetime: formData.start_datetime.trim(),
-    stop_datetime: formData.stop_datetime.trim(),
-    start_file: formData.start_file.trim(),
-    stop_file: formData.stop_file.trim()
-  })
+    ...(formData.start_datetime.trim() ? { start_datetime: formData.start_datetime.trim() } : {}),
+    ...(formData.stop_datetime.trim() ? { stop_datetime: formData.stop_datetime.trim() } : {}),
+    ...(formData.start_file.trim() ? { start_file: formData.start_file.trim() } : {}),
+    ...(formData.stop_file.trim() ? { stop_file: formData.stop_file.trim() } : {})
+  }
+
+  const created = await store.createTask(payload)
 
   if (created?.id) {
     router.push(`/flashback-tasks/${created.id}`)
@@ -211,11 +198,7 @@ function hasRequiredFields() {
       formData.database_name.trim() &&
       formData.table_name.trim() &&
       formData.sql_type &&
-      formData.work_type &&
-      formData.start_datetime.trim() &&
-      formData.stop_datetime.trim() &&
-      formData.start_file.trim() &&
-      formData.stop_file.trim()
+      formData.work_type
   )
 }
 </script>
