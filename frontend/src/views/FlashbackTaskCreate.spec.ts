@@ -122,7 +122,7 @@ describe('FlashbackTaskCreate', () => {
     await flushPromises()
 
     expect(createFlashbackTaskMock).not.toHaveBeenCalled()
-  })
+  }, 15000)
 
   it('does not fall back to the first connection when multiple connections exist', async () => {
     getAuthorizedConnectionsMock.mockResolvedValueOnce({

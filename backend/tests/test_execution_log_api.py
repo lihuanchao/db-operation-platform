@@ -190,6 +190,28 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         self.assertEqual([item['id'] for item in all_data['items']], [flashback_task.id, archive_log.id])
         self.assertEqual([item['log_type'] for item in all_data['items']], ['flashback', 'archive'])
 
+    def test_execution_logs_support_flashback_task_name_search_with_serialized_name(self):
+        flashback_task = self._create_flashback_task(
+            task_id=12,
+            status='completed',
+            started_at=datetime(2026, 4, 8, 10, 5, 0),
+            finished_at=datetime(2026, 4, 8, 10, 6, 0),
+        )
+
+        flashback_response = self.client.get(
+            '/api/execution-logs?page=1&per_page=10&log_type=flashback&task_name=demo_db.orders'
+        )
+        all_response = self.client.get(
+            '/api/execution-logs?page=1&per_page=10&log_type=all&task_name=demo_db.orders'
+        )
+
+        self.assertEqual(flashback_response.status_code, 200)
+        self.assertEqual(all_response.status_code, 200)
+        self.assertEqual(flashback_response.get_json()['data']['total'], 1)
+        self.assertEqual(flashback_response.get_json()['data']['items'][0]['id'], flashback_task.id)
+        self.assertEqual(all_response.get_json()['data']['total'], 1)
+        self.assertEqual(all_response.get_json()['data']['items'][0]['id'], flashback_task.id)
+
     def test_execution_logs_stable_order_across_pages_for_equal_timestamps(self):
         event_time = datetime(2026, 4, 8, 10, 0, 0)
         first_archive = self._create_archive_log(task_id=30, log_id=30, start_time=event_time, end_time=event_time)
@@ -249,6 +271,19 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         self.assertEqual(fail_response.status_code, 500)
         self.assertFalse(fail_response.get_json()['success'])
         self.assertIn('permission denied', fail_response.get_json()['error'])
+
+    def test_flashback_typed_log_content_returns_empty_payload_while_task_is_waiting_for_log(self):
+        task = self._create_flashback_task(task_id=23, status='queued', log_content=None)
+        task.log_file = None
+        db.session.commit()
+
+        response = self.client.get(f'/api/execution-logs/flashback/{task.id}/log-content')
+
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertTrue(body['success'])
+        self.assertEqual(body['data']['content'], '')
+        self.assertFalse(body['data']['has_file'])
 
     def test_flashback_artifact_download_rejects_tampered_manifest_path(self):
         rogue_artifact = os.path.join(self.escape_dir, 'escape.sql')

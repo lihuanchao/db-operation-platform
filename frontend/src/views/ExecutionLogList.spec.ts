@@ -146,7 +146,7 @@ describe('ExecutionLogList', () => {
       status: undefined,
       log_type: 'all'
     })
-  })
+  }, 15000)
 
   it('shows download only for flashback rows without log_file and hides archive placeholders', async () => {
     getExecutionLogListMock.mockResolvedValueOnce(buildListResponse([

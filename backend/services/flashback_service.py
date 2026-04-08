@@ -116,6 +116,8 @@ class FlashbackService:
             return None, '闪回任务不存在', 404
 
         if not task.log_file:
+            if task.status in ('queued', 'running'):
+                return {'content': '', 'has_file': False}, None, 200
             return None, '日志文件不存在', 404
 
         log_file = cls._resolve_task_path(task_id, task.log_file)
@@ -123,6 +125,8 @@ class FlashbackService:
             return None, '日志文件路径越界', 404
 
         if not os.path.exists(log_file):
+            if task.status in ('queued', 'running'):
+                return {'content': '', 'has_file': False}, None, 200
             return None, '日志文件不存在', 404
 
         try:

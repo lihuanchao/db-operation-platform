@@ -81,6 +81,16 @@ class ExecutionLogService:
         }
 
     @staticmethod
+    def _flashback_task_name_filter(task_name):
+        pattern = f'%{task_name}%'
+        full_task_name = FlashbackTask.database_name + '.' + FlashbackTask.table_name
+        return or_(
+            FlashbackTask.database_name.like(pattern),
+            FlashbackTask.table_name.like(pattern),
+            full_task_name.like(pattern),
+        )
+
+    @staticmethod
     def _apply_sort_meta(item, sort_time, sort_id, log_type_rank):
         item['_sort_time'] = sort_time
         item['_sort_id'] = sort_id
@@ -135,12 +145,7 @@ class ExecutionLogService:
             if task_id:
                 query = query.filter(FlashbackTask.id == task_id)
             if task_name:
-                query = query.filter(
-                    or_(
-                        FlashbackTask.database_name.like(f'%{task_name}%'),
-                        FlashbackTask.table_name.like(f'%{task_name}%'),
-                    )
-                )
+                query = query.filter(cls._flashback_task_name_filter(task_name))
             if status_filter is not None:
                 if status_filter == 1:
                     matched_statuses = ['completed']
@@ -177,12 +182,7 @@ class ExecutionLogService:
         if task_id:
             flashback_query = flashback_query.filter(FlashbackTask.id == task_id)
         if task_name:
-            flashback_query = flashback_query.filter(
-                or_(
-                    FlashbackTask.database_name.like(f'%{task_name}%'),
-                    FlashbackTask.table_name.like(f'%{task_name}%'),
-                )
-            )
+            flashback_query = flashback_query.filter(cls._flashback_task_name_filter(task_name))
         if status_filter is not None:
             if status_filter == 1:
                 matched_statuses = ['completed']

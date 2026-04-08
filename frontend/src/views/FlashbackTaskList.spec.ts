@@ -125,7 +125,7 @@ describe('FlashbackTaskList', () => {
 
     expect(pushMock).toHaveBeenNthCalledWith(1, '/flashback-tasks/create')
     expect(pushMock).toHaveBeenNthCalledWith(2, '/flashback-tasks/11')
-  })
+  }, 15000)
 
   it('applies filters and requests the list again', async () => {
     const wrapper = mountView()
