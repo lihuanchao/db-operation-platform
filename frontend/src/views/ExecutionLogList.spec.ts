@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import type { ExecutionLog } from '@/types'
+import { useExecutionLogStore } from '@/stores/executionLog'
 
 const pushMock = vi.fn()
 
@@ -51,11 +52,15 @@ function buildLog(overrides: Partial<ExecutionLog> = {}): ExecutionLog {
 }
 
 describe('ExecutionLogList', () => {
-  function mountView() {
+  function mountView(options: {
+    setupStore?: (store: ReturnType<typeof useExecutionLogStore>) => void
+  } = {}) {
     const pinia = createPinia()
     setActivePinia(pinia)
+    const store = useExecutionLogStore()
+    options.setupStore?.(store)
 
-    return mount(ExecutionLogList, {
+    const wrapper = mount(ExecutionLogList, {
       global: {
         plugins: [pinia, ElementPlus],
         stubs: {
@@ -65,30 +70,53 @@ describe('ExecutionLogList', () => {
         }
       }
     })
+
+    return {
+      wrapper,
+      store
+    }
+  }
+
+  function buildListResponse(items: ExecutionLog[]) {
+    return {
+      success: true,
+      data: {
+        items,
+        total: items.length,
+        page: 1,
+        per_page: 10
+      }
+    }
+  }
+
+  function findButtonByText(wrapper: ReturnType<typeof mount>, text: string) {
+    const button = wrapper.findAll('button').find((item) => item.text().includes(text))
+    expect(button, `button containing ${text}`).toBeDefined()
+    return button!
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
 
-    getExecutionLogListMock.mockResolvedValue({
-      success: true,
-      data: {
-        items: [
-          buildLog()
-        ],
-        total: 1,
-        page: 1,
-        per_page: 10
-      }
-    })
+    getExecutionLogListMock.mockResolvedValue(buildListResponse([buildLog()]))
 
     getExecutionLogMock.mockResolvedValue({ success: true, data: buildLog() })
     getLogContentMock.mockResolvedValue({ success: true, data: { content: 'log line', has_file: true } })
     downloadExecutionLogMock.mockResolvedValue({ status: 200, data: new Blob(['log line']) })
   })
 
-  it('renders unified log filters and typed task links', async () => {
-    const wrapper = mountView()
+  it('clears stale task_id filters on mount and reset for unified log queries', async () => {
+    const { wrapper, store } = mountView({
+      setupStore(currentStore) {
+        currentStore.setFilters({
+          task_id: 999,
+          task_name: 'legacy',
+          status: 2,
+          log_type: 'archive'
+        })
+      }
+    })
+
     await flushPromises()
 
     expect(getExecutionLogListMock).toHaveBeenCalledWith({
@@ -99,15 +127,115 @@ describe('ExecutionLogList', () => {
       status: undefined,
       log_type: 'all'
     })
+
+    store.setFilters({
+      task_id: 123,
+      task_name: 'dirty again',
+      status: 0,
+      log_type: 'flashback'
+    })
+
+    await findButtonByText(wrapper, '重置').trigger('click')
+    await flushPromises()
+
+    expect(getExecutionLogListMock).toHaveBeenLastCalledWith({
+      page: 1,
+      per_page: 10,
+      task_id: undefined,
+      task_name: '',
+      status: undefined,
+      log_type: 'all'
+    })
+  })
+
+  it('renders unified log links for flashback and archive rows', async () => {
+    getExecutionLogListMock.mockResolvedValueOnce(buildListResponse([
+      buildLog({
+        id: 22,
+        task_name: 'sales.orders 闪回任务',
+        log_type: 'flashback',
+        log_file: null,
+        detail_path: '/flashback-tasks/22'
+      }),
+      buildLog({
+        id: 101,
+        task_id: 101,
+        task_name: '订单归档任务',
+        log_type: 'archive',
+        detail_path: '/archive-tasks/101'
+      })
+    ]))
+
+    const { wrapper, store } = mountView()
+    const downloadSpy = vi.spyOn(store, 'downloadLog').mockResolvedValue(null)
+    await flushPromises()
+
     expect(wrapper.text()).toContain('日志类型')
-    expect(wrapper.text()).toContain('sales.orders 闪回任务')
     expect(wrapper.text()).toContain('数据闪回')
+    expect(wrapper.text()).toContain('订单归档任务')
 
-    const taskLink = wrapper.get('[data-detail-path="/flashback-tasks/22"]')
-    expect(taskLink.text()).toContain('sales.orders 闪回任务')
+    await wrapper.get('[data-detail-path="/flashback-tasks/22"]').trigger('click')
+    await wrapper.get('[data-detail-path="/archive-tasks/101"]').trigger('click')
+    await findButtonByText(wrapper, '下载').trigger('click')
 
-    await taskLink.trigger('click')
+    expect(pushMock).toHaveBeenNthCalledWith(1, '/flashback-tasks/22')
+    expect(pushMock).toHaveBeenNthCalledWith(2, '/archive-tasks/101')
+    expect(downloadSpy).toHaveBeenCalledWith('flashback', 22)
+  })
 
-    expect(pushMock).toHaveBeenCalledWith('/flashback-tasks/22')
+  it('keeps the current log type when refreshed rows share the same id', async () => {
+    getExecutionLogListMock
+      .mockResolvedValueOnce(buildListResponse([
+        buildLog({
+          id: 7,
+          task_id: 7,
+          task_name: '订单归档任务',
+          log_type: 'archive',
+          detail_path: '/archive-tasks/7'
+        })
+      ]))
+      .mockResolvedValueOnce(buildListResponse([
+        buildLog({
+          id: 7,
+          task_id: 7,
+          task_name: 'sales.orders 闪回任务',
+          log_type: 'flashback',
+          detail_path: '/flashback-tasks/7'
+        }),
+        buildLog({
+          id: 7,
+          task_id: 7,
+          task_name: '订单归档任务',
+          log_type: 'archive',
+          detail_path: '/archive-tasks/7'
+        })
+      ]))
+      .mockResolvedValueOnce(buildListResponse([
+        buildLog({
+          id: 7,
+          task_id: 7,
+          task_name: 'sales.orders 闪回任务',
+          log_type: 'flashback',
+          detail_path: '/flashback-tasks/7'
+        }),
+        buildLog({
+          id: 7,
+          task_id: 7,
+          task_name: '订单归档任务',
+          log_type: 'archive',
+          detail_path: '/archive-tasks/7'
+        })
+      ]))
+
+    const { wrapper } = mountView()
+    await flushPromises()
+
+    await findButtonByText(wrapper, '查看日志').trigger('click')
+    await flushPromises()
+    await findButtonByText(wrapper, '刷新日志').trigger('click')
+    await flushPromises()
+
+    expect(getLogContentMock).toHaveBeenNthCalledWith(1, 'archive', 7)
+    expect(getLogContentMock).toHaveBeenNthCalledWith(2, 'archive', 7)
   })
 })

@@ -144,6 +144,11 @@ describe('Sidebar', () => {
     const slowSqlSidebar = mountSidebar(['/slow-sqls']).wrapper
     expect(slowSqlSidebar.getComponent(ElMenuStub).props('defaultActive')).toBe('/slow-sqls')
 
+    routeState.path = '/archive-tasks/123'
+
+    const archiveSidebar = mountSidebar(['/archive-tasks']).wrapper
+    expect(archiveSidebar.getComponent(ElMenuStub).props('defaultActive')).toBe('/archive-tasks')
+
     routeState.path = '/optimization-tasks/123'
 
     const optimizationSidebar = mountSidebar(['/optimization-tasks']).wrapper

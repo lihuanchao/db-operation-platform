@@ -137,6 +137,7 @@ let suppressAutoOpenUntil = 0
 const activeMenu = computed(() => {
   if (route.path.startsWith('/optimization-tasks')) return '/optimization-tasks'
   if (route.path.startsWith('/slow-sql')) return '/slow-sqls'
+  if (route.path.startsWith('/archive-tasks')) return '/archive-tasks'
   if (route.path.startsWith('/flashback-tasks')) return '/flashback-tasks'
   if (route.path.startsWith('/users')) return '/users'
   if (route.path.startsWith('/roles')) return '/roles'

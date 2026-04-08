@@ -56,6 +56,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/ArchiveTaskWithCron.vue')
   },
   {
+    path: '/archive-tasks/:id',
+    name: 'ArchiveTaskDetail',
+    component: () => import('@/views/ArchiveTaskWithCron.vue')
+  },
+  {
     path: '/execution-logs',
     name: 'ExecutionLogList',
     component: () => import('@/views/ExecutionLogList.vue')

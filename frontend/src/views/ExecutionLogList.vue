@@ -108,7 +108,7 @@
                 查看日志
               </el-button>
               <el-button
-                v-if="row.log_file"
+                v-if="canDownloadLog(row)"
                 link
                 type="primary"
                 size="small"
@@ -169,6 +169,7 @@ const store = useExecutionLogStore()
 const router = useRouter()
 
 const defaultFilters = {
+  task_id: undefined as number | undefined,
   log_type: 'all' as ExecutionLogFilterType,
   task_name: '',
   status: undefined as number | undefined
@@ -185,7 +186,7 @@ const refreshingLog = ref(false)
 let refreshInterval: number | null = null
 
 onMounted(async () => {
-  store.setFilters(filters.value)
+  syncUnifiedFilters()
   await store.fetchList()
 })
 
@@ -197,6 +198,23 @@ onUnmounted(() => {
 
 function getLogTypeText(logType?: ExecutionLogRouteType) {
   return logType === 'flashback' ? '数据闪回' : '归档任务'
+}
+
+function normalizeLogType(logType?: ExecutionLogRouteType) {
+  return logType ?? 'archive'
+}
+
+function syncUnifiedFilters() {
+  store.resetFilters()
+  store.setFilters({
+    ...filters.value,
+    task_id: undefined
+  })
+}
+
+function canDownloadLog(row: ExecutionLog) {
+  return typeof row.id === 'number'
+    && (normalizeLogType(row.log_type) === 'archive' || normalizeLogType(row.log_type) === 'flashback')
 }
 
 function getStatusType(status: number) {
@@ -244,14 +262,16 @@ async function refreshLogContent() {
 
   refreshingLog.value = true
   try {
-    const logType = currentLog.value?.log_type ?? 'archive'
+    const logType = normalizeLogType(currentLog.value?.log_type)
     const response = await getLogContent(logType, logId)
     if (response.success && response.data) {
       logContent.value = response.data.content || ''
 
       await store.fetchList()
 
-      const updatedLog = store.list.find((log) => log.id === logId)
+      const updatedLog = store.list.find((log) => (
+        log.id === logId && normalizeLogType(log.log_type) === logType
+      ))
       if (updatedLog) {
         currentLog.value = updatedLog
       }
@@ -268,7 +288,7 @@ async function refreshLogContent() {
 }
 
 function handleSearch() {
-  store.setFilters(filters.value)
+  syncUnifiedFilters()
   store.fetchList()
 }
 
@@ -276,7 +296,7 @@ function handleReset() {
   filters.value = {
     ...defaultFilters
   }
-  store.setFilters(filters.value)
+  syncUnifiedFilters()
   store.fetchList()
 }
 

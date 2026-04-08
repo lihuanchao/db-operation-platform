@@ -22,6 +22,10 @@ const routes: RouteRecordRaw[] = [
     component: { template: '<div>flashback</div>' }
   },
   {
+    path: '/archive-tasks/:id',
+    component: { template: '<div>archive detail</div>' }
+  },
+  {
     path: '/login',
     component: { template: '<div>login</div>' }
   }
@@ -203,5 +207,16 @@ describe('AppLayout', () => {
       closable: true
     })
     expect(wrapper.get('[data-tab-path="/flashback-tasks"]').text()).toContain('数据闪回')
+  })
+
+  it('resolves archive detail tabs to the archive task label', async () => {
+    const { wrapper, layoutStore } = await mountLayout('/archive-tasks/101')
+
+    expect(layoutStore.tabs).toContainEqual({
+      path: '/archive-tasks/101',
+      title: '归档任务',
+      closable: true
+    })
+    expect(wrapper.get('[data-tab-path="/archive-tasks/101"]').text()).toContain('归档任务')
   })
 })
