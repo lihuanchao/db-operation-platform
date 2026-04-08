@@ -14,6 +14,27 @@ class FlashbackService:
     OUTPUT_ROOT = '/app/flashback/tasks'
 
     @classmethod
+    def _task_root(cls, task_id):
+        return os.path.realpath(os.path.join(cls.OUTPUT_ROOT, str(task_id)))
+
+    @classmethod
+    def _resolve_task_path(cls, task_id, path):
+        if not path or not isinstance(path, str):
+            return None
+
+        task_root = cls._task_root(task_id)
+        candidate = path if os.path.isabs(path) else os.path.join(task_root, path)
+        candidate = os.path.realpath(candidate)
+
+        try:
+            if os.path.commonpath([task_root, candidate]) != task_root:
+                return None
+        except ValueError:
+            return None
+
+        return candidate
+
+    @classmethod
     def build_command(cls, task, connection, output_dir):
         command = [
             cls.TOOL_PATH,
@@ -91,11 +112,21 @@ class FlashbackService:
     @classmethod
     def get_log_content(cls, task_id):
         task = db.session.get(FlashbackTask, task_id)
-        if not task or not task.log_file or not os.path.exists(task.log_file):
+        if not task:
+            return None, '闪回任务不存在'
+
+        if not task.log_file:
+            return {'content': '', 'has_file': False}, None
+
+        log_file = cls._resolve_task_path(task_id, task.log_file)
+        if not log_file:
+            return None, '日志文件路径越界'
+
+        if not os.path.exists(log_file):
             return {'content': '', 'has_file': False}, None
 
         try:
-            with open(task.log_file, 'r', encoding='utf-8') as file_obj:
+            with open(log_file, 'r', encoding='utf-8') as file_obj:
                 return {'content': file_obj.read(), 'has_file': True}, None
         except Exception as exc:
             return None, str(exc)
@@ -107,11 +138,26 @@ class FlashbackService:
             return None, '闪回任务不存在'
 
         if not artifact_id:
-            return task.log_file, None
+            if not task.log_file:
+                return None, '日志文件不存在'
+            log_file = cls._resolve_task_path(task_id, task.log_file)
+            if not log_file:
+                return None, '日志文件路径越界'
+            if not os.path.exists(log_file):
+                return None, '日志文件不存在'
+            return log_file, None
 
         for item in task.get_artifacts():
             if item.get('id') == artifact_id:
-                return item.get('path'), None
+                artifact_path = item.get('path')
+                if not artifact_path:
+                    return None, '产物文件不存在'
+                resolved_path = cls._resolve_task_path(task_id, artifact_path)
+                if not resolved_path:
+                    return None, '产物文件路径越界'
+                if not os.path.exists(resolved_path):
+                    return None, '产物文件不存在'
+                return resolved_path, None
 
         return None, '产物文件不存在'
 

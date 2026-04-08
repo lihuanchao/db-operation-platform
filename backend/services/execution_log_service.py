@@ -13,6 +13,13 @@ class ExecutionLogService:
     """
 
     @staticmethod
+    def normalize_log_type(log_type):
+        value = (log_type or '').strip().lower()
+        if value in ('flashback', 'archive', 'all', 'merged'):
+            return value
+        return 'archive'
+
+    @staticmethod
     def normalize_flashback_status(status):
         """
         将闪回任务状态统一映射为执行日志状态码。
@@ -55,9 +62,10 @@ class ExecutionLogService:
             per_page = 10
 
         status_filter = cls.normalize_flashback_status(status)
+        normalized_log_type = cls.normalize_log_type(log_type)
         merged_items = []
 
-        if log_type in ('', 'archive'):
+        if normalized_log_type in ('archive', 'all', 'merged'):
             query = ExecutionLog.query.options(joinedload(ExecutionLog.task)).join(
                 ArchiveTask, ArchiveTask.id == ExecutionLog.task_id
             )
@@ -73,10 +81,13 @@ class ExecutionLogService:
                 item.update({
                     'log_type': 'archive',
                     'detail_path': f'/archive-tasks/{log.task_id}',
+                    '_sort_time': log.start_time or log.created_at or datetime.min,
+                    '_sort_id': log.id or 0,
+                    '_sort_log_type': 'archive',
                 })
-                merged_items.append((log.start_time or log.created_at or datetime.min, item))
+                merged_items.append(item)
 
-        if log_type in ('', 'flashback'):
+        if normalized_log_type in ('flashback', 'all', 'merged'):
             query = FlashbackTask.query
             if task_id:
                 query = query.filter(FlashbackTask.id == task_id)
@@ -110,11 +121,23 @@ class ExecutionLogService:
                     'created_at': item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else None,
                     'log_type': 'flashback',
                     'detail_path': f'/flashback-tasks/{item.id}',
+                    '_sort_time': item.started_at or item.created_at or datetime.min,
+                    '_sort_id': item.id or 0,
+                    '_sort_log_type': 'flashback',
                 }
-                merged_items.append((item.started_at or item.created_at or datetime.min, serialized))
+                merged_items.append(serialized)
 
-        merged_items.sort(key=lambda pair: pair[0], reverse=True)
-        items = [item for _, item in merged_items]
+        merged_items.sort(
+            key=lambda item: (item['_sort_time'], item['_sort_id'], item['_sort_log_type']),
+            reverse=True,
+        )
+        items = []
+        for item in merged_items:
+            cleaned = dict(item)
+            cleaned.pop('_sort_time', None)
+            cleaned.pop('_sort_id', None)
+            cleaned.pop('_sort_log_type', None)
+            items.append(cleaned)
         total = len(items)
         start = (page - 1) * per_page
         end = start + per_page

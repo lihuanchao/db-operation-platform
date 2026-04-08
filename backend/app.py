@@ -1009,7 +1009,7 @@ def get_execution_logs(current_user):
     task_id = request.args.get('task_id', None, type=int)
     task_name = request.args.get('task_name', '')
     status = request.args.get('status', None)
-    log_type = request.args.get('log_type', '')
+    log_type = request.args.get('log_type')
 
     data = ExecutionLogService.get_log_list(
         page=page,
@@ -1096,7 +1096,7 @@ def get_typed_log_content(current_user, log_type, id):
     if log_type == 'flashback':
         data, error = FlashbackService.get_log_content(id)
         if error:
-            return error_response(error, 500)
+            return error_response(error, 404)
         return success_response(data)
 
     if log_type == 'archive':

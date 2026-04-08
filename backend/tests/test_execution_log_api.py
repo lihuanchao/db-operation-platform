@@ -24,6 +24,7 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         self.ctx = app.app_context()
         self.ctx.push()
         self.temp_dir = tempfile.mkdtemp(prefix='execution-log-api-')
+        self.escape_dir = tempfile.mkdtemp(prefix='execution-log-escape-')
         self.original_output_root = FlashbackService.OUTPUT_ROOT
         FlashbackService.OUTPUT_ROOT = self.temp_dir
         db.drop_all()
@@ -62,12 +63,13 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         db.drop_all()
         FlashbackService.OUTPUT_ROOT = self.original_output_root
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+        shutil.rmtree(self.escape_dir, ignore_errors=True)
         self.ctx.pop()
 
-    def _create_archive_log(self):
+    def _create_archive_log(self, task_id=1, log_id=1, start_time=None, end_time=None, status=1):
         archive_task = ArchiveTask(
-            id=1,
-            task_name='归档任务',
+            id=task_id,
+            task_name=f'归档任务-{task_id}',
             source_connection_id=self.connection.id,
             source_database='demo_db',
             source_table='orders',
@@ -76,21 +78,33 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         db.session.add(archive_task)
         db.session.commit()
 
+        start_time = start_time or (datetime.now() - timedelta(minutes=5))
+        end_time = end_time or (datetime.now() - timedelta(minutes=1))
         log = ExecutionLog(
-            id=1,
+            id=log_id,
             task_id=archive_task.id,
-            start_time=datetime.now() - timedelta(minutes=5),
-            end_time=datetime.now() - timedelta(minutes=1),
-            status=1,
-            log_file=os.path.join(self.temp_dir, 'archive.log'),
+            start_time=start_time,
+            end_time=end_time,
+            status=status,
+            log_file=os.path.join(self.temp_dir, f'archive-{log_id}.log'),
             error_message=None,
         )
         db.session.add(log)
         db.session.commit()
         return log
 
-    def _create_flashback_task(self, status='completed'):
+    def _create_flashback_task(
+        self,
+        task_id=2,
+        status='completed',
+        started_at=None,
+        finished_at=None,
+        log_file_path=None,
+        log_content='flashback log content',
+        artifacts=None,
+    ):
         task = FlashbackTask(
+            id=task_id,
             db_connection_id=self.connection.id,
             connection_id=self.connection.id,
             connection_name=self.connection.connection_name,
@@ -101,26 +115,49 @@ class ExecutionLogApiTestCase(unittest.TestCase):
             work_type='2sql',
             status=status,
             progress=100 if status == 'completed' else 30,
-            log_file=os.path.join(self.temp_dir, 'flashback', 'run.log'),
             error_message=None,
             created_at=datetime.now() - timedelta(minutes=2),
             updated_at=datetime.now() - timedelta(minutes=1),
-            started_at=datetime.now() - timedelta(minutes=2),
-            finished_at=datetime.now() - timedelta(minutes=1),
+            started_at=started_at or (datetime.now() - timedelta(minutes=2)),
+            finished_at=finished_at or (datetime.now() - timedelta(minutes=1)),
         )
         db.session.add(task)
         db.session.commit()
 
-        os.makedirs(os.path.dirname(task.log_file), exist_ok=True)
-        with open(task.log_file, 'w', encoding='utf-8') as file_obj:
-            file_obj.write('flashback log content')
+        task_root = os.path.join(self.temp_dir, str(task.id))
+        os.makedirs(task_root, exist_ok=True)
+        log_file_path = log_file_path or os.path.join(task_root, 'run.log')
+        if log_content is not None:
+            os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+            with open(log_file_path, 'w', encoding='utf-8') as file_obj:
+                file_obj.write(log_content)
+        task.log_file = log_file_path
+
+        if artifacts is not None:
+            normalized_artifacts = []
+            for artifact in artifacts:
+                artifact_path = artifact['path']
+                os.makedirs(os.path.dirname(artifact_path), exist_ok=True)
+                content = artifact.get('content', '')
+                if content is not None:
+                    with open(artifact_path, 'w', encoding='utf-8') as file_obj:
+                        file_obj.write(content)
+                normalized_artifacts.append({
+                    'id': artifact['id'],
+                    'name': artifact.get('name') or os.path.basename(artifact_path),
+                    'path': artifact_path,
+                    'size': os.path.getsize(artifact_path),
+                })
+            task.set_artifacts(normalized_artifacts)
+
+        db.session.commit()
         return task
 
-    def test_get_execution_logs_filters_flashback_logs_and_normalizes_structure(self):
+    def test_default_execution_logs_stays_archive_only(self):
         self._create_archive_log()
-        task = self._create_flashback_task(status='completed')
+        self._create_flashback_task()
 
-        response = self.client.get('/api/execution-logs?page=1&per_page=10&log_type=flashback')
+        response = self.client.get('/api/execution-logs?page=1&per_page=10')
 
         self.assertEqual(response.status_code, 200)
         body = response.get_json()
@@ -128,24 +165,54 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         data = body['data']
         self.assertEqual(data['total'], 1)
         self.assertEqual(len(data['items']), 1)
+        self.assertEqual(data['items'][0]['log_type'], 'archive')
 
-        item = data['items'][0]
-        self.assertEqual(item['id'], task.id)
-        self.assertEqual(item['log_type'], 'flashback')
-        self.assertEqual(item['status'], 1)
-        self.assertEqual(item['detail_path'], f'/flashback-tasks/{task.id}')
-        self.assertIn('task_name', item)
+    def test_execution_logs_support_flashback_and_all_views(self):
+        event_time = datetime(2026, 4, 8, 10, 0, 0)
+        archive_log = self._create_archive_log(task_id=10, log_id=10, start_time=event_time, end_time=event_time)
+        flashback_task = self._create_flashback_task(task_id=11, started_at=event_time, finished_at=event_time)
 
-    def test_get_flashback_log_content_returns_log_file_content(self):
-        task = self._create_flashback_task(status='running')
+        flashback_response = self.client.get('/api/execution-logs?page=1&per_page=10&log_type=flashback')
+        self.assertEqual(flashback_response.status_code, 200)
+        flashback_data = flashback_response.get_json()['data']
+        self.assertEqual(flashback_data['total'], 1)
+        self.assertEqual(len(flashback_data['items']), 1)
+        self.assertEqual(flashback_data['items'][0]['id'], flashback_task.id)
+        self.assertEqual(flashback_data['items'][0]['log_type'], 'flashback')
+
+        all_response = self.client.get('/api/execution-logs?page=1&per_page=10&log_type=all')
+        self.assertEqual(all_response.status_code, 200)
+        all_data = all_response.get_json()['data']
+        self.assertEqual(all_data['total'], 2)
+        self.assertEqual([item['id'] for item in all_data['items']], [flashback_task.id, archive_log.id])
+        self.assertEqual([item['log_type'] for item in all_data['items']], ['flashback', 'archive'])
+
+    def test_flashback_log_content_rejects_log_file_outside_task_root(self):
+        rogue_log = os.path.join(self.escape_dir, 'rogue.log')
+        with open(rogue_log, 'w', encoding='utf-8') as file_obj:
+            file_obj.write('rogue content')
+        task = self._create_flashback_task(task_id=20, log_file_path=rogue_log, log_content=None)
 
         response = self.client.get(f'/api/execution-logs/flashback/{task.id}/log-content')
 
-        self.assertEqual(response.status_code, 200)
-        body = response.get_json()
-        self.assertTrue(body['success'])
-        self.assertEqual(body['data']['content'], 'flashback log content')
-        self.assertTrue(body['data']['has_file'])
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(response.get_json()['success'])
+
+    def test_flashback_artifact_download_rejects_tampered_manifest_path(self):
+        rogue_artifact = os.path.join(self.escape_dir, 'escape.sql')
+        task = self._create_flashback_task(
+            task_id=21,
+            artifacts=[{
+                'id': 'result-sql',
+                'path': rogue_artifact,
+                'content': 'select 1;',
+            }],
+        )
+
+        response = self.client.get(f'/api/flashback-tasks/{task.id}/artifacts/result-sql/download')
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(response.get_json()['success'])
 
 
 if __name__ == '__main__':
