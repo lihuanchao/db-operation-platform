@@ -50,7 +50,7 @@ def error_response(message, status_code=400):
 
 
 def _flashback_error_status(message):
-    if '必填字段' in message or '不存在或已禁用' in message:
+    if '必填字段' in message or '不存在或已禁用' in message or '必须为整数' in message:
         return 400
     return 500
 

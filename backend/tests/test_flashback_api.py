@@ -146,6 +146,24 @@ class FlashbackApiTestCase(unittest.TestCase):
         self.assertIn('连接', response.get_json()['error'])
         self.assertEqual(mock_run_task_async.call_count, 0)
 
+    def test_create_flashback_task_rejects_non_integer_connection_id(self):
+        payload = {
+            'db_connection_id': 'abc',
+            'database_name': 'demo_db',
+            'table_name': 'orders',
+            'sql_type': 'delete',
+            'work_type': '2sql',
+        }
+
+        response = self.client.post('/api/flashback-tasks', json=payload)
+
+        self.assertEqual(response.status_code, 400)
+        body = response.get_json()
+        self.assertFalse(body['success'])
+        self.assertEqual(body['error'], 'db_connection_id 必须为整数')
+        self.assertNotIn('ValueError', body['error'])
+        self.assertNotIn('invalid literal', body['error'])
+
     def test_list_flashback_tasks_supports_pagination(self):
         first_task = self._create_task()
         second_task = self._create_task(database_name='audit_db', table_name='events', sql_type='insert')

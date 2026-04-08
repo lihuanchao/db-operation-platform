@@ -96,7 +96,12 @@ class FlashbackService:
                 if field not in data or data[field] in (None, ''):
                     return None, f'{field} 是必填字段'
 
-            db_connection = db.session.get(DbConnection, int(data['db_connection_id']))
+            try:
+                db_connection_id = int(data['db_connection_id'])
+            except (TypeError, ValueError):
+                return None, 'db_connection_id 必须为整数'
+
+            db_connection = db.session.get(DbConnection, db_connection_id)
             if not db_connection or db_connection.is_enabled == 0:
                 return None, '数据库连接不存在或已禁用'
 
