@@ -148,7 +148,7 @@ describe('ExecutionLogList', () => {
     })
   })
 
-  it('renders unified log links for flashback and archive rows', async () => {
+  it('shows download only for flashback rows without log_file and hides archive placeholders', async () => {
     getExecutionLogListMock.mockResolvedValueOnce(buildListResponse([
       buildLog({
         id: 22,
@@ -162,6 +162,7 @@ describe('ExecutionLogList', () => {
         task_id: 101,
         task_name: '订单归档任务',
         log_type: 'archive',
+        log_file: null,
         detail_path: '/archive-tasks/101'
       })
     ]))
@@ -176,7 +177,11 @@ describe('ExecutionLogList', () => {
 
     await wrapper.get('[data-detail-path="/flashback-tasks/22"]').trigger('click')
     await wrapper.get('[data-detail-path="/archive-tasks/101"]').trigger('click')
-    await findButtonByText(wrapper, '下载').trigger('click')
+
+    expect(wrapper.find('[data-download-key="flashback-22"]').exists()).toBe(true)
+    expect(wrapper.find('[data-download-key="archive-101"]').exists()).toBe(false)
+
+    await wrapper.get('[data-download-key="flashback-22"]').trigger('click')
 
     expect(pushMock).toHaveBeenNthCalledWith(1, '/flashback-tasks/22')
     expect(pushMock).toHaveBeenNthCalledWith(2, '/archive-tasks/101')

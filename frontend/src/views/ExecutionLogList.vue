@@ -112,6 +112,7 @@
                 link
                 type="primary"
                 size="small"
+                :data-download-key="`${normalizeLogType(row.log_type)}-${row.id}`"
                 @click="handleDownload(row)"
               >
                 <el-icon><Download /></el-icon>
@@ -213,8 +214,17 @@ function syncUnifiedFilters() {
 }
 
 function canDownloadLog(row: ExecutionLog) {
-  return typeof row.id === 'number'
-    && (normalizeLogType(row.log_type) === 'archive' || normalizeLogType(row.log_type) === 'flashback')
+  const logType = normalizeLogType(row.log_type)
+
+  if (typeof row.id !== 'number') {
+    return false
+  }
+
+  if (logType === 'flashback') {
+    return true
+  }
+
+  return logType === 'archive' && !!row.log_file
 }
 
 function getStatusType(status: number) {

@@ -1,7 +1,12 @@
 <template>
   <AppLayout>
     <div class="page-header">
-      <h2>归档任务管理</h2>
+      <div class="page-title-group">
+        <h2>归档任务管理</h2>
+        <p v-if="locatedTask" class="page-context" data-testid="archive-context">
+          已定位到任务：{{ locatedTask.task_name }}
+        </p>
+      </div>
       <el-button type="primary" @click="handleAddTask">
         <el-icon><Plus /></el-icon>
         新增归档任务
@@ -290,7 +295,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete, VideoPlay, Switch } from '@element-plus/icons-vue'
 import AppLayout from '@/components/Layout/AppLayout.vue'
@@ -302,6 +308,7 @@ import type { ArchiveTask, CronJob, DbConnection } from '@/types'
 const store = useArchiveTaskStore()
 const cronStore = useCronJobStore()
 const connectionStore = useDbConnectionStore()
+const route = useRoute()
 
 const formDialogVisible = ref(false)
 const cronDialogVisible = ref(false)
@@ -309,12 +316,17 @@ const cronFormDialogVisible = ref(false)
 const editingTask = ref<ArchiveTask | null>(null)
 const editingCronJob = ref<CronJob | null>(null)
 const currentTask = ref<ArchiveTask | null>(null)
+const locatedTask = ref<ArchiveTask | null>(null)
 const formRef = ref()
 const cronFormRef = ref()
 
-const filters = ref({
+const defaultFilters = {
   task_name: '',
   source_connection_id: undefined as number | undefined
+}
+
+const filters = ref({
+  ...defaultFilters
 })
 
 const formData = ref<Omit<ArchiveTask, 'id' | 'created_at' | 'updated_at' | 'source_connection' | 'dest_connection'>>({
@@ -354,9 +366,46 @@ function getCronJobsByTask(taskId: number) {
   return cronStore.list.filter(cron => cron.task_id === taskId)
 }
 
+function resolveRouteTaskId() {
+  const routeTaskId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
+  const taskId = Number(routeTaskId)
+
+  return Number.isInteger(taskId) && taskId > 0 ? taskId : null
+}
+
+async function syncRouteTaskContext() {
+  filters.value = {
+    ...defaultFilters
+  }
+  locatedTask.value = null
+  store.resetFilters()
+
+  const taskId = resolveRouteTaskId()
+  if (taskId !== null) {
+    const detail = await store.fetchDetail(taskId)
+    if (detail) {
+      locatedTask.value = detail
+      filters.value = {
+        ...defaultFilters,
+        task_name: detail.task_name
+      }
+      store.setFilters({
+        ...filters.value
+      })
+      await store.fetchList()
+      return
+    }
+  }
+
+  await store.fetchList()
+}
+
+watch(() => route.params.id, () => {
+  void syncRouteTaskContext()
+}, { immediate: true })
+
 onMounted(async () => {
   await Promise.all([
-    store.fetchList(),
     cronStore.fetchList(),
     connectionStore.fetchList()
   ])
@@ -369,9 +418,9 @@ function handleSearch() {
 
 function handleReset() {
   filters.value = {
-    task_name: '',
-    source_connection_id: undefined
+    ...defaultFilters
   }
+  locatedTask.value = null
   store.resetFilters()
   store.fetchList()
 }
@@ -545,6 +594,12 @@ function handleSizeChange(size: number) {
   margin-bottom: 20px;
 }
 
+.page-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .action-buttons {
   display: flex;
   flex-direction: row;
@@ -562,6 +617,12 @@ function handleSizeChange(size: number) {
 .page-header h2 {
   margin: 0;
   color: #1e3a5f;
+}
+
+.page-context {
+  margin: 0;
+  color: #51657c;
+  font-size: 13px;
 }
 
 .filter-card {
