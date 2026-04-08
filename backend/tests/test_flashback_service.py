@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from datetime import datetime
 
 from models.flashback_task import FlashbackTask
 from services.flashback_service import FlashbackService
@@ -46,15 +47,30 @@ class FlashbackServiceTestCase(unittest.TestCase):
 
         command, masked_command = FlashbackService.build_command(task, self._make_connection(), self.output_dir)
 
-        self.assertEqual(command[0], FlashbackService.TOOL_PATH)
-        self.assertIn('-databases', command)
-        self.assertIn('-tables', command)
-        self.assertIn('-mode', command)
-        self.assertIn('-sql', command)
-        self.assertIn('-work-type', command)
-        self.assertIn('-output-dir', command)
-        self.assertIn(self.output_dir, command)
-        self.assertEqual(masked_command.count(FlashbackService.TOOL_PATH), 1)
+        self.assertEqual(command, [
+            FlashbackService.TOOL_PATH,
+            '-databases', 'demo_db',
+            '-tables', 'orders',
+            '-mode', 'repl',
+            '-host', '10.0.0.1',
+            '-port', '3306',
+            '-user', 'repl',
+            '-password', 'secret',
+            '-sql', 'delete',
+            '-start-datetime', '2026-04-08 08:00:00',
+            '-stop-datetime', '2026-04-08 08:40:00',
+            '-start-file', 'mysql-bin.000001',
+            '-stop-file', 'mysql-bin.000002',
+            '-work-type', '2sql',
+            '-output-dir', self.output_dir,
+        ])
+        self.assertEqual(
+            masked_command,
+            '/my2sql -databases demo_db -tables orders -mode repl -host 10.0.0.1 -port 3306 -user repl '
+            '-password ****** -sql delete -start-datetime 2026-04-08 08:00:00 -stop-datetime 2026-04-08 08:40:00 '
+            '-start-file mysql-bin.000001 -stop-file mysql-bin.000002 -work-type 2sql -output-dir '
+            f'{self.output_dir}',
+        )
 
     def test_build_command_skips_empty_start_and_stop_file(self):
         task = self._make_task(start_file='', stop_file='')
@@ -87,11 +103,71 @@ class FlashbackServiceTestCase(unittest.TestCase):
 
         artifacts = FlashbackService.collect_artifacts(self.output_dir)
 
-        self.assertEqual([artifact['name'] for artifact in artifacts], [
-            'binlog_status.txt',
-            'biglong_trx.txt',
-            'a.sql',
+        self.assertEqual(artifacts, [
+            {
+                'id': 'binlog_status',
+                'name': 'binlog_status.txt',
+                'path': os.path.join(self.output_dir, 'binlog_status.txt'),
+                'size': len('binlog_status.txt'),
+            },
+            {
+                'id': 'biglong_trx',
+                'name': 'biglong_trx.txt',
+                'path': os.path.join(self.output_dir, 'biglong_trx.txt'),
+                'size': len('biglong_trx.txt'),
+            },
+            {
+                'id': 'result-sql',
+                'name': 'a.sql',
+                'path': os.path.join(self.output_dir, 'a.sql'),
+                'size': len('a.sql'),
+            },
         ])
+
+    def test_collect_artifacts_raises_when_fixed_file_missing(self):
+        with open(os.path.join(self.output_dir, 'binlog_status.txt'), 'w', encoding='utf-8') as file_obj:
+            file_obj.write('ok')
+
+        with self.assertRaises(FileNotFoundError):
+            FlashbackService.collect_artifacts(self.output_dir)
+
+    def test_collect_artifacts_raises_when_sql_file_missing(self):
+        with open(os.path.join(self.output_dir, 'binlog_status.txt'), 'w', encoding='utf-8') as file_obj:
+            file_obj.write('ok')
+        with open(os.path.join(self.output_dir, 'biglong_trx.txt'), 'w', encoding='utf-8') as file_obj:
+            file_obj.write('ok')
+
+        with self.assertRaises(FileNotFoundError):
+            FlashbackService.collect_artifacts(self.output_dir)
+
+    def test_flashback_task_artifact_serialization_round_trip(self):
+        task = FlashbackTask(
+            db_connection_id=1,
+            connection_id=1,
+            connection_name='测试连接',
+            database_name='demo_db',
+            table_name='orders',
+            mode='repl',
+            sql_type='delete',
+            work_type='2sql',
+            created_at=datetime(2026, 4, 8, 8, 1, 2),
+            updated_at=datetime(2026, 4, 8, 8, 3, 4),
+            started_at=datetime(2026, 4, 8, 8, 5, 6),
+            finished_at=datetime(2026, 4, 8, 8, 7, 8),
+        )
+
+        artifacts = [
+            {'id': 'binlog_status', 'name': 'binlog_status.txt', 'path': '/tmp/binlog_status.txt', 'size': 12},
+            {'id': 'result-sql', 'name': 'a.sql', 'path': '/tmp/a.sql', 'size': 34},
+        ]
+        task.set_artifacts(artifacts)
+
+        self.assertEqual(task.get_artifacts(), artifacts)
+        self.assertEqual(task.to_dict()['artifacts'], artifacts)
+        self.assertEqual(task.to_dict()['created_at'], '2026-04-08 08:01:02')
+        self.assertEqual(task.to_dict()['updated_at'], '2026-04-08 08:03:04')
+        self.assertEqual(task.to_dict()['started_at'], '2026-04-08 08:05:06')
+        self.assertEqual(task.to_dict()['finished_at'], '2026-04-08 08:07:08')
 
 
 if __name__ == '__main__':

@@ -47,11 +47,15 @@ class FlashbackService:
     @staticmethod
     def collect_artifacts(output_dir):
         items = []
-        for name in ('binlog_status.txt', 'biglong_trx.txt'):
+        for artifact_id, name in (
+            ('binlog_status', 'binlog_status.txt'),
+            ('biglong_trx', 'biglong_trx.txt'),
+        ):
             path = os.path.join(output_dir, name)
             if not os.path.exists(path):
                 raise FileNotFoundError(name)
             items.append({
+                'id': artifact_id,
                 'name': name,
                 'path': path,
                 'size': os.path.getsize(path),
@@ -62,9 +66,9 @@ class FlashbackService:
             raise FileNotFoundError('*.sql')
         sql_path = sql_files[0]
         items.append({
+            'id': 'result-sql',
             'name': os.path.basename(sql_path),
             'path': sql_path,
             'size': os.path.getsize(sql_path),
         })
         return items
-
