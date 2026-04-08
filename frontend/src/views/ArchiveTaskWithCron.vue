@@ -514,6 +514,18 @@ async function handleDelete(row: ArchiveTask) {
     )
     if (row.id) {
       await store.removeTask(row.id)
+      if (locatedTask.value?.id === row.id) {
+        locatedTask.value = null
+        if (currentTask.value?.id === row.id) {
+          currentTask.value = null
+          cronDialogVisible.value = false
+        }
+        filters.value = {
+          ...defaultFilters
+        }
+        store.resetFilters()
+        await store.fetchList()
+      }
     }
   } catch {
     // User cancelled
@@ -551,10 +563,22 @@ async function handleDeleteCron(row: CronJob) {
 async function handleFormSubmit() {
   await formRef.value?.validate()
   try {
+    let savedTask: ArchiveTask | null = null
     if (editingTask.value?.id) {
-      await store.editTask(editingTask.value.id, formData.value)
+      savedTask = await store.editTask(editingTask.value.id, formData.value) ?? null
     } else {
-      await store.addTask(formData.value)
+      savedTask = await store.addTask(formData.value) ?? null
+    }
+
+    if (savedTask && locatedTask.value?.id === savedTask.id) {
+      locatedTask.value = {
+        ...savedTask
+      }
+      if (currentTask.value?.id === savedTask.id) {
+        currentTask.value = {
+          ...savedTask
+        }
+      }
     }
     formDialogVisible.value = false
   } catch (error) {
