@@ -45,6 +45,7 @@ class FlashbackService:
 
     @classmethod
     def get_task_list(cls, page=1, per_page=10, database_name='', table_name='', status='', sql_type='', work_type=''):
+        page, per_page = cls._normalize_pagination(page, per_page)
         query = FlashbackTask.query
 
         if database_name:
@@ -121,7 +122,9 @@ class FlashbackService:
             db.session.add(task)
             db.session.commit()
 
-            cls._run_task_async(task.id)
+            started, start_error = cls._run_task_async(task.id)
+            if not started:
+                return None, start_error or '异步任务启动失败'
             return task.to_dict(), None
         except Exception as exc:
             db.session.rollback()
@@ -131,12 +134,24 @@ class FlashbackService:
     def _run_task_async(cls, task_id):
         from app import app
 
+        task = db.session.get(FlashbackTask, task_id)
+        if not task:
+            return False, '任务不存在'
+
         def _worker():
             with app.app_context():
                 cls._execute_task(task_id)
 
-        thread = threading.Thread(target=_worker, daemon=True)
-        thread.start()
+        try:
+            thread = threading.Thread(target=_worker, daemon=True)
+            thread.start()
+            return True, None
+        except Exception as exc:
+            error_message = f'异步任务启动失败: {exc}'
+            task = db.session.get(FlashbackTask, task_id)
+            if task:
+                cls._mark_failed(task, error_message)
+            return False, error_message
 
     @classmethod
     def _execute_task(cls, task_id):
@@ -149,22 +164,22 @@ class FlashbackService:
             cls._mark_failed(task, '数据库连接不存在或已禁用')
             return
 
-        task_dir = os.path.join(cls.OUTPUT_ROOT, str(task.id))
-        output_dir = os.path.join(task_dir, 'output')
-        log_file = os.path.join(task_dir, 'run.log')
-        os.makedirs(output_dir, exist_ok=True)
-
-        command, masked_command = cls.build_command(task, connection, output_dir)
-        task.output_dir = output_dir
-        task.log_file = log_file
-        task.status = 'running'
-        task.progress = 30
-        task.started_at = datetime.now()
-        task.masked_command = masked_command
-        task.error_message = None
-        db.session.commit()
-
         try:
+            task_dir = os.path.join(cls.OUTPUT_ROOT, str(task.id))
+            output_dir = os.path.join(task_dir, 'output')
+            log_file = os.path.join(task_dir, 'run.log')
+            os.makedirs(output_dir, exist_ok=True)
+
+            command, masked_command = cls.build_command(task, connection, output_dir)
+            task.output_dir = output_dir
+            task.log_file = log_file
+            task.status = 'running'
+            task.progress = 30
+            task.started_at = datetime.now()
+            task.masked_command = masked_command
+            task.error_message = None
+            db.session.commit()
+
             with open(log_file, 'a', encoding='utf-8') as log_fp:
                 process = subprocess.Popen(command, stdout=log_fp, stderr=log_fp, text=True)
                 return_code = process.wait()
@@ -234,3 +249,17 @@ class FlashbackService:
             'size': os.path.getsize(sql_path),
         })
         return items
+
+    @staticmethod
+    def _normalize_pagination(page, per_page):
+        try:
+            page = int(page)
+        except (TypeError, ValueError):
+            page = 1
+
+        try:
+            per_page = int(per_page)
+        except (TypeError, ValueError):
+            per_page = 10
+
+        return max(page, 1), max(per_page, 1)

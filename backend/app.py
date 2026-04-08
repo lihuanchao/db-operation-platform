@@ -49,6 +49,12 @@ def error_response(message, status_code=400):
     return jsonify({'success': False, 'error': message}), status_code
 
 
+def _flashback_error_status(message):
+    if '必填字段' in message or '不存在或已禁用' in message:
+        return 400
+    return 500
+
+
 def get_request_ip():
     forwarded_for = request.headers.get('X-Forwarded-For', '')
     if forwarded_for:
@@ -505,7 +511,7 @@ def create_flashback_task(current_user):
 
     task, error = FlashbackService.create_task(payload, current_user=current_user)
     if error:
-        return error_response(error, 400)
+        return error_response(error, _flashback_error_status(error))
     return success_response(task)
 
 
