@@ -1,5 +1,9 @@
+from datetime import datetime
+
 from models import ExecutionLog, ArchiveTask
+from models.flashback_task import FlashbackTask
 from extensions import db
+from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 
 
@@ -9,26 +13,117 @@ class ExecutionLogService:
     """
 
     @staticmethod
-    def get_log_list(page=1, per_page=10, task_id=None, status=None):
+    def normalize_flashback_status(status):
+        """
+        将闪回任务状态统一映射为执行日志状态码。
+        """
+        if status is None:
+            return None
+
+        if isinstance(status, int):
+            return status if status in (0, 1, 2) else None
+
+        if isinstance(status, str):
+            normalized = status.strip().lower()
+            if not normalized:
+                return None
+            if normalized.isdigit():
+                value = int(normalized)
+                return value if value in (0, 1, 2) else None
+            return {
+                'completed': 1,
+                'queued': 2,
+                'running': 2,
+                'failed': 0,
+            }.get(normalized)
+
+        return None
+
+    @classmethod
+    def get_log_list(cls, page=1, per_page=10, task_name='', status=None, log_type='', task_id=None):
         """
         获取执行日志列表
         """
-        query = ExecutionLog.query.options(joinedload(ExecutionLog.task))
+        try:
+            page = max(int(page), 1)
+        except (TypeError, ValueError):
+            page = 1
 
-        if task_id:
-            query = query.filter(ExecutionLog.task_id == task_id)
+        try:
+            per_page = max(int(per_page), 1)
+        except (TypeError, ValueError):
+            per_page = 10
 
-        if status is not None:
-            query = query.filter(ExecutionLog.status == status)
+        status_filter = cls.normalize_flashback_status(status)
+        merged_items = []
 
-        total = query.count()
-        logs = query.order_by(ExecutionLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        if log_type in ('', 'archive'):
+            query = ExecutionLog.query.options(joinedload(ExecutionLog.task)).join(
+                ArchiveTask, ArchiveTask.id == ExecutionLog.task_id
+            )
+            if task_id:
+                query = query.filter(ExecutionLog.task_id == task_id)
+            if task_name:
+                query = query.filter(ArchiveTask.task_name.like(f'%{task_name}%'))
+            if status_filter is not None:
+                query = query.filter(ExecutionLog.status == status_filter)
+
+            for log in query.all():
+                item = log.to_dict()
+                item.update({
+                    'log_type': 'archive',
+                    'detail_path': f'/archive-tasks/{log.task_id}',
+                })
+                merged_items.append((log.start_time or log.created_at or datetime.min, item))
+
+        if log_type in ('', 'flashback'):
+            query = FlashbackTask.query
+            if task_id:
+                query = query.filter(FlashbackTask.id == task_id)
+            if task_name:
+                query = query.filter(
+                    or_(
+                        FlashbackTask.database_name.like(f'%{task_name}%'),
+                        FlashbackTask.table_name.like(f'%{task_name}%'),
+                    )
+                )
+            if status_filter is not None:
+                if status_filter == 1:
+                    matched_statuses = ['completed']
+                elif status_filter == 2:
+                    matched_statuses = ['queued', 'running']
+                else:
+                    matched_statuses = ['failed']
+                query = query.filter(FlashbackTask.status.in_(matched_statuses))
+
+            for item in query.all():
+                serialized = {
+                    'id': item.id,
+                    'task_id': item.id,
+                    'task_name': f'{item.database_name}.{item.table_name}',
+                    'cron_job_id': None,
+                    'start_time': item.started_at.strftime('%Y-%m-%d %H:%M:%S') if item.started_at else None,
+                    'end_time': item.finished_at.strftime('%Y-%m-%d %H:%M:%S') if item.finished_at else None,
+                    'status': cls.normalize_flashback_status(item.status),
+                    'log_file': item.log_file,
+                    'error_message': item.error_message,
+                    'created_at': item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else None,
+                    'log_type': 'flashback',
+                    'detail_path': f'/flashback-tasks/{item.id}',
+                }
+                merged_items.append((item.started_at or item.created_at or datetime.min, serialized))
+
+        merged_items.sort(key=lambda pair: pair[0], reverse=True)
+        items = [item for _, item in merged_items]
+        total = len(items)
+        start = (page - 1) * per_page
+        end = start + per_page
 
         return {
-            'items': [log.to_dict() for log in logs.items],
+            'items': items[start:end],
             'total': total,
             'page': page,
-            'per_page': per_page
+            'per_page': per_page,
         }
 
     @staticmethod

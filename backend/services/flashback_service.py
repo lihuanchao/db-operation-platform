@@ -89,6 +89,33 @@ class FlashbackService:
         return task.to_dict()
 
     @classmethod
+    def get_log_content(cls, task_id):
+        task = db.session.get(FlashbackTask, task_id)
+        if not task or not task.log_file or not os.path.exists(task.log_file):
+            return {'content': '', 'has_file': False}, None
+
+        try:
+            with open(task.log_file, 'r', encoding='utf-8') as file_obj:
+                return {'content': file_obj.read(), 'has_file': True}, None
+        except Exception as exc:
+            return None, str(exc)
+
+    @classmethod
+    def resolve_download_file(cls, task_id, artifact_id=None):
+        task = db.session.get(FlashbackTask, task_id)
+        if not task:
+            return None, '闪回任务不存在'
+
+        if not artifact_id:
+            return task.log_file, None
+
+        for item in task.get_artifacts():
+            if item.get('id') == artifact_id:
+                return item.get('path'), None
+
+        return None, '产物文件不存在'
+
+    @classmethod
     def create_task(cls, data, current_user=None):
         try:
             required_fields = ['db_connection_id', 'database_name', 'table_name', 'sql_type', 'work_type']

@@ -986,6 +986,20 @@ def toggle_cron_job(current_user, id):
 
 # ==================== 执行日志 API ====================
 
+def _send_file_download(file_path, mimetype='text/plain'):
+    filename = os.path.basename(file_path)
+    response = send_file(
+        file_path,
+        mimetype=mimetype,
+        as_attachment=True,
+        download_name=filename
+    )
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
 @app.route('/api/execution-logs', methods=['GET'])
 @admin_required
 def get_execution_logs(current_user):
@@ -993,9 +1007,18 @@ def get_execution_logs(current_user):
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     task_id = request.args.get('task_id', None, type=int)
-    status = request.args.get('status', None, type=int)
+    task_name = request.args.get('task_name', '')
+    status = request.args.get('status', None)
+    log_type = request.args.get('log_type', '')
 
-    data = ExecutionLogService.get_log_list(page, per_page, task_id, status)
+    data = ExecutionLogService.get_log_list(
+        page=page,
+        per_page=per_page,
+        task_name=task_name,
+        status=status,
+        log_type=log_type,
+        task_id=task_id,
+    )
     return success_response(data)
 
 
@@ -1020,22 +1043,30 @@ def download_execution_log(current_user, id):
     try:
         import os
         if os.path.exists(log.log_file):
-            filename = os.path.basename(log.log_file)
-            response = send_file(
-                log.log_file,
-                mimetype='text/plain',
-                as_attachment=True,
-                download_name=filename
-            )
-            # 添加缓存控制头，防止浏览器缓存
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response.headers['Pragma'] = 'no-cache'
-            response.headers['Expires'] = '0'
-            return response
+            return _send_file_download(log.log_file)
         else:
             return error_response('日志文件已被删除', 404)
     except Exception as e:
         return error_response(f'下载失败: {str(e)}', 500)
+
+
+@app.route('/api/execution-logs/<string:log_type>/<int:id>/download', methods=['GET'])
+@admin_required
+def download_typed_execution_log(current_user, log_type, id):
+    """下载统一执行日志文件"""
+    if log_type == 'flashback':
+        artifact_id = request.args.get('artifact_id')
+        file_path, error = FlashbackService.resolve_download_file(id, artifact_id or None)
+        if error:
+            return error_response(error, 404)
+        if not file_path or not os.path.exists(file_path):
+            return error_response('日志文件不存在', 404)
+        return _send_file_download(file_path)
+
+    if log_type == 'archive':
+        return download_execution_log(current_user, id)
+
+    return error_response('日志类型不存在', 404)
 
 
 @app.route('/api/execution-logs/<int:id>/log-content', methods=['GET'])
@@ -1056,6 +1087,44 @@ def get_log_content(current_user, id):
         return success_response({'content': content, 'has_file': True})
     except Exception as e:
         return error_response(f'读取日志失败: {str(e)}', 500)
+
+
+@app.route('/api/execution-logs/<string:log_type>/<int:id>/log-content', methods=['GET'])
+@admin_required
+def get_typed_log_content(current_user, log_type, id):
+    """获取统一执行日志内容"""
+    if log_type == 'flashback':
+        data, error = FlashbackService.get_log_content(id)
+        if error:
+            return error_response(error, 500)
+        return success_response(data)
+
+    if log_type == 'archive':
+        return get_log_content(current_user, id)
+
+    return error_response('日志类型不存在', 404)
+
+
+@app.route('/api/flashback-tasks/<int:id>/artifacts', methods=['GET'])
+@admin_required
+def list_flashback_artifacts(current_user, id):
+    """获取闪回任务产物列表"""
+    task = FlashbackService.get_task_detail(id)
+    if not task:
+        return error_response('闪回任务不存在', 404)
+    return success_response({'items': task.get('artifacts', [])})
+
+
+@app.route('/api/flashback-tasks/<int:id>/artifacts/<string:artifact_id>/download', methods=['GET'])
+@admin_required
+def download_flashback_artifact(current_user, id, artifact_id):
+    """下载闪回任务产物文件"""
+    file_path, error = FlashbackService.resolve_download_file(id, artifact_id)
+    if error:
+        return error_response(error, 404)
+    if not file_path or not os.path.exists(file_path):
+        return error_response('文件不存在', 404)
+    return _send_file_download(file_path)
 
 
 @app.route('/api/health', methods=['GET'])
