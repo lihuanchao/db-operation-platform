@@ -238,6 +238,19 @@ def get_slow_sql_detail(current_user, checksum):
         opt = MonitorMysqlSlowQueryOptimized.query.get(checksum)
         slow_sql['optimized_suggestion'] = opt.optimized_suggestion if opt else None
         slow_sql['is_optimized'] = opt.is_optimized if opt else 0
+        slow_sql['writing_optimization'] = ''
+        slow_sql['index_recommendation'] = ''
+        slow_sql['optimized_content'] = None
+        slow_sql['matched_rules'] = ''
+
+        if slow_sql['optimized_suggestion']:
+            writing_optimization, index_recommendation, optimized_content, matched_rules = OptimizationTaskService.extract_sections(
+                slow_sql['optimized_suggestion']
+            )
+            slow_sql['writing_optimization'] = writing_optimization
+            slow_sql['index_recommendation'] = index_recommendation
+            slow_sql['optimized_content'] = optimized_content
+            slow_sql['matched_rules'] = matched_rules
 
         return success_response(slow_sql)
     except Exception as e:
@@ -276,7 +289,17 @@ def optimize_slow_sql(current_user, checksum):
         db.session.add(opt)
         db.session.commit()
 
-        return success_response({'suggestion': suggestion})
+        writing_optimization, index_recommendation, optimized_content, matched_rules = OptimizationTaskService.extract_sections(
+            suggestion
+        )
+
+        return success_response({
+            'suggestion': suggestion,
+            'writing_optimization': writing_optimization,
+            'index_recommendation': index_recommendation,
+            'optimized_content': optimized_content,
+            'matched_rules': matched_rules
+        })
     except Exception as e:
         return error_response(str(e), 500)
 
@@ -1000,6 +1023,34 @@ def _send_file_download(file_path, mimetype='text/plain'):
     return response
 
 
+def _read_log_file_text(file_path):
+    with open(file_path, 'rb') as file_obj:
+        raw = file_obj.read()
+
+    for encoding in ('utf-8', 'utf-8-sig', 'gb18030', 'gbk'):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+
+    return raw.decode('utf-8', errors='replace')
+
+
+def _resolve_archive_log_content(log_id):
+    log = ExecutionLog.query.get(log_id)
+    if not log:
+        return None, '执行日志不存在', 404
+
+    log_file = log.log_file
+    if not log_file or not os.path.exists(log_file):
+        return {'content': '', 'has_file': False}, None, 200
+
+    try:
+        return {'content': _read_log_file_text(log_file), 'has_file': True}, None, 200
+    except Exception as e:
+        return None, f'读取日志失败: {str(e)}', 500
+
+
 @app.route('/api/execution-logs', methods=['GET'])
 @admin_required
 def get_execution_logs(current_user):
@@ -1073,20 +1124,10 @@ def download_typed_execution_log(current_user, log_type, id):
 @admin_required
 def get_log_content(current_user, id):
     """获取执行日志的实时内容"""
-    log = ExecutionLog.query.get(id)
-    if not log:
-        return error_response('执行日志不存在', 404)
-
-    log_file = log.log_file
-    if not log_file or not os.path.exists(log_file):
-        return success_response({'content': '', 'has_file': False})
-
-    try:
-        with open(log_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return success_response({'content': content, 'has_file': True})
-    except Exception as e:
-        return error_response(f'读取日志失败: {str(e)}', 500)
+    data, error, status_code = _resolve_archive_log_content(id)
+    if error:
+        return error_response(error, status_code)
+    return success_response(data)
 
 
 @app.route('/api/execution-logs/<string:log_type>/<int:id>/log-content', methods=['GET'])
@@ -1100,7 +1141,10 @@ def get_typed_log_content(current_user, log_type, id):
         return success_response(data)
 
     if log_type == 'archive':
-        return get_log_content(current_user, id)
+        data, error, status_code = _resolve_archive_log_content(id)
+        if error:
+            return error_response(error, status_code)
+        return success_response(data)
 
     return error_response('日志类型不存在', 404)
 

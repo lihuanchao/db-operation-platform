@@ -11,15 +11,69 @@ export const getSlowSQLDetail = (checksum: string) => {
 }
 
 export const optimizeSlowSQL = (checksum: string) => {
-  return request.post<{ suggestion: string }, ApiResponse<{ suggestion: string }>>(`/slow-sqls/${checksum}/optimize`)
+  return request.post<{
+    suggestion: string
+    writing_optimization?: string
+    index_recommendation?: string
+    optimized_content?: string | null
+    matched_rules?: string
+  }, ApiResponse<{
+    suggestion: string
+    writing_optimization?: string
+    index_recommendation?: string
+    optimized_content?: string | null
+    matched_rules?: string
+  }>>(`/slow-sqls/${checksum}/optimize`)
 }
 
 export const batchOptimizeSlowSQLs = (ids: string[]) => {
   return request.post<{ results: OptimizeResult[] }, ApiResponse<{ results: OptimizeResult[] }>>('/slow-sqls/batch-optimize', { ids })
 }
 
-export const downloadSlowSQL = (checksum: string) => {
-  window.open(`/api/slow-sqls/${checksum}/download`, '_blank')
+export const downloadSlowSQL = async (checksum: string) => {
+  try {
+    const response = await fetch(`/api/slow-sqls/${checksum}/download`, {
+      method: 'GET'
+    })
+
+    if (!response.ok) {
+      let message = '下载失败，请稍后重试'
+      try {
+        const data = await response.json()
+        if (data?.error) {
+          message = data.error
+        }
+      } catch {
+        // ignore json parse error and keep fallback message
+      }
+      throw new Error(message)
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+
+    const contentDisposition = response.headers.get('Content-Disposition')
+    let fileName = `slow_sql_${checksum}_optimization.md`
+    if (contentDisposition) {
+      const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+      if (matches != null && matches[1]) {
+        fileName = decodeURIComponent(matches[1].replace(/['"]/g, ''))
+      }
+    }
+
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    ElMessage.success('下载成功')
+  } catch (error) {
+    console.error('下载错误:', error)
+    ElMessage.error(error instanceof Error ? error.message : '下载失败，请稍后重试')
+  }
 }
 
 export const batchDownloadSlowSQLs = (ids: string[]) => {
@@ -61,6 +115,7 @@ export const batchDownloadSlowSQLs = (ids: string[]) => {
     // 清理
     window.URL.revokeObjectURL(url)
     document.body.removeChild(a)
+    ElMessage.success('下载成功')
   })
   .catch(error => {
     console.error('下载错误:', error)

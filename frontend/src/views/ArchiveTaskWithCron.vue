@@ -118,88 +118,103 @@
       </el-card>
     </div>
 
-    <!-- 任务表单对话框 -->
-    <el-dialog
+    <!-- 任务表单抽屉 -->
+    <el-drawer
       v-model="formDialogVisible"
-      :title="editingTask ? '编辑任务' : '新增任务'"
-      width="800px"
+      :title="editingTask ? '编辑归档任务' : '新增归档任务'"
+      direction="rtl"
+      size="560px"
+      class="archive-task-drawer"
       destroy-on-close
     >
-      <el-form
-        :model="formData"
-        :rules="formRules"
-        label-width="120px"
-        ref="formRef"
-      >
-        <el-form-item label="任务名称" prop="task_name">
-          <el-input v-model="formData.task_name" placeholder="请输入任务名称" />
-        </el-form-item>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="源库连接" prop="source_connection_id">
-              <el-select v-model="formData.source_connection_id" placeholder="请选择源库连接" style="width: 100%">
-                <el-option
-                  v-for="conn in connectionList"
-                  :key="conn.id"
-                  :label="conn.connection_name"
-                  :value="conn.id"
-                />
-              </el-select>
+      <div class="drawer-body">
+        <el-form
+          :model="formData"
+          :rules="formRules"
+          :show-message="false"
+          label-width="96px"
+          ref="formRef"
+        >
+          <section class="form-section">
+            <div class="section-heading">
+              <h3>核心信息</h3>
+            </div>
+            <el-form-item label="任务名称" prop="task_name">
+              <el-input v-model="formData.task_name" placeholder="请输入任务名称" />
             </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="源库名称" prop="source_database">
-              <el-input v-model="formData.source_database" placeholder="请输入源库名称" />
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-form-item label="源连接" prop="source_connection_id">
+                  <el-select v-model="formData.source_connection_id" placeholder="请选择源库连接" style="width: 100%">
+                    <el-option
+                      v-for="conn in connectionList"
+                      :key="conn.id"
+                      :label="conn.connection_name"
+                      :value="conn.id"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="源库" prop="source_database">
+                  <el-input v-model="formData.source_database" placeholder="请输入源库名称" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="源表" prop="source_table">
+              <el-input v-model="formData.source_table" placeholder="请输入源表名称" />
             </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="源表名称" prop="source_table">
-          <el-input v-model="formData.source_table" placeholder="请输入源表名称" />
-        </el-form-item>
-        <el-divider content-position="left">目标库配置（可选）</el-divider>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="目标库连接" prop="dest_connection_id">
-              <el-select v-model="formData.dest_connection_id" placeholder="请选择目标库连接（可选）" style="width: 100%" clearable>
-                <el-option
-                  v-for="conn in connectionList"
-                  :key="conn.id"
-                  :label="conn.connection_name"
-                  :value="conn.id"
-                />
-              </el-select>
+            <el-form-item label="归档条件" prop="where_condition">
+              <el-input
+                v-model="formData.where_condition"
+                type="textarea"
+                :rows="4"
+                placeholder="请输入 WHERE 条件（如：CreateDate < '2026-02-01'）"
+              />
             </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="目标库名称" prop="dest_database">
-              <el-input v-model="formData.dest_database" placeholder="请输入目标库名称（可选）" />
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <h3>高级配置</h3>
+            </div>
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-form-item label="目标连接" prop="dest_connection_id">
+                  <el-select v-model="formData.dest_connection_id" placeholder="请选择目标库连接" style="width: 100%" clearable>
+                    <el-option
+                      v-for="conn in connectionList"
+                      :key="conn.id"
+                      :label="conn.connection_name"
+                      :value="conn.id"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="目标库" prop="dest_database">
+                  <el-input v-model="formData.dest_database" placeholder="请输入目标库名称" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="目标表" prop="dest_table">
+              <el-input v-model="formData.dest_table" placeholder="请输入目标表名称" />
             </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="目标表名称" prop="dest_table">
-          <el-input v-model="formData.dest_table" placeholder="请输入目标表名称（可选）" />
-        </el-form-item>
-        <el-form-item label="归档条件" prop="where_condition">
-          <el-input
-            v-model="formData.where_condition"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入 WHERE 条件（如：CreateDate < '2026-02-01'）"
-          />
-        </el-form-item>
-        <el-form-item label="启用状态">
-          <el-switch v-model="formData.is_enabled" />
-        </el-form-item>
-      </el-form>
+            <el-form-item label="启用状态">
+              <el-switch v-model="formData.is_enabled" />
+            </el-form-item>
+          </section>
+        </el-form>
+      </div>
       <template #footer>
-        <span class="dialog-footer">
+        <span class="drawer-footer">
           <el-button @click="formDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleFormSubmit" :loading="store.formLoading">
-            确定
+          <el-button type="primary" @click="handleFormSubmit" :loading="store.formLoading || isSubmitting" :disabled="store.formLoading || isSubmitting">
+            {{ editingTask ? '保存' : '保存并执行' }}
           </el-button>
         </span>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- 定时任务管理对话框 -->
     <el-dialog
@@ -264,6 +279,7 @@
         <el-form
           :model="cronFormData"
           :rules="cronFormRules"
+          :show-message="false"
           label-width="120px"
           ref="cronFormRef"
         >
@@ -317,6 +333,7 @@ const route = useRoute()
 const formDialogVisible = ref(false)
 const cronDialogVisible = ref(false)
 const cronFormDialogVisible = ref(false)
+const isSubmitting = ref(false)
 const editingTask = ref<ArchiveTask | null>(null)
 const editingCronJob = ref<CronJob | null>(null)
 const currentTask = ref<ArchiveTask | null>(null)
@@ -333,9 +350,13 @@ const filters = ref({
   ...defaultFilters
 })
 
-const formData = ref<Omit<ArchiveTask, 'id' | 'created_at' | 'updated_at' | 'source_connection' | 'dest_connection'>>({
+type ArchiveTaskFormData = Omit<ArchiveTask, 'id' | 'created_at' | 'updated_at' | 'source_connection' | 'dest_connection' | 'source_connection_id'> & {
+  source_connection_id: number | undefined
+}
+
+const formData = ref<ArchiveTaskFormData>({
   task_name: '',
-  source_connection_id: 0,
+  source_connection_id: undefined,
   source_database: '',
   source_table: '',
   dest_connection_id: undefined,
@@ -432,7 +453,7 @@ function handleAddTask() {
   editingTask.value = null
   formData.value = {
     task_name: '',
-    source_connection_id: 0,
+    source_connection_id: undefined,
     source_database: '',
     source_table: '',
     dest_connection_id: undefined,
@@ -565,13 +586,38 @@ async function handleDeleteCron(row: CronJob) {
 }
 
 async function handleFormSubmit() {
-  await formRef.value?.validate()
+  if (isSubmitting.value) {
+    return
+  }
+  isSubmitting.value = true
+
   try {
+    try {
+      await formRef.value?.validate()
+    } catch (error) {
+      console.error('表单校验失败:', error)
+      return
+    }
+
     let savedTask: ArchiveTask | null = null
-    if (editingTask.value?.id) {
-      savedTask = await store.editTask(editingTask.value.id, formData.value) ?? null
+    const editingTaskId = editingTask.value?.id
+    const sourceConnectionId = formData.value.source_connection_id
+    if (sourceConnectionId === undefined) {
+      return
+    }
+    const submitPayload = {
+      ...formData.value,
+      source_connection_id: sourceConnectionId
+    }
+
+    if (editingTaskId) {
+      savedTask = await store.editTask(editingTaskId, submitPayload) ?? null
     } else {
-      savedTask = await store.addTask(formData.value) ?? null
+      savedTask = await store.addTask(submitPayload) ?? null
+    }
+
+    if (!savedTask) {
+      return
     }
 
     if (savedTask && locatedTask.value?.id === savedTask.id) {
@@ -584,9 +630,25 @@ async function handleFormSubmit() {
         }
       }
     }
+
     formDialogVisible.value = false
+
+    if (!editingTaskId && savedTask.id) {
+      try {
+        const executeResult = await store.executeTask(savedTask.id)
+        if (!executeResult) {
+          ElMessage.warning('任务已创建成功，但自动执行失败，请在列表中手动点击“执行”重试。')
+        }
+      } catch (error) {
+        console.error('自动执行失败:', error)
+        ElMessage.warning('任务已创建成功，但自动执行失败，请在列表中手动点击“执行”重试。')
+      }
+    }
   } catch (error) {
     console.error('提交失败:', error)
+    ElMessage.error('提交失败，请稍后重试。')
+  } finally {
+    isSubmitting.value = false
   }
 }
 
@@ -711,12 +773,6 @@ function handleSizeChange(size: number) {
   overflow-x: hidden !important;
 }
 
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
 .cron-dialog-content {
   padding: 10px 0;
 }
@@ -737,5 +793,55 @@ function handleSizeChange(size: number) {
 
 .cron-help li {
   margin: 3px 0;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%;
+}
+
+.drawer-body {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.form-section {
+  padding: 18px 18px 8px;
+  margin-bottom: 16px;
+  border: 1px solid #e4ebf3;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.section-heading {
+  margin-bottom: 16px;
+}
+
+.section-heading h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e3a5f;
+}
+
+.archive-task-drawer :deep(.el-drawer__header) {
+  margin-bottom: 0;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #e6edf5;
+  color: #1e3a5f;
+}
+
+.archive-task-drawer :deep(.el-drawer__body) {
+  padding: 18px 24px;
+  background: #f5f8fc;
+}
+
+.archive-task-drawer :deep(.el-drawer__footer) {
+  padding: 16px 24px 20px;
+  border-top: 1px solid #e6edf5;
+  background: #ffffff;
 }
 </style>

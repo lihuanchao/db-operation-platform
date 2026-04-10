@@ -194,111 +194,48 @@ class PTArchiver:
         :param task: ArchiveTask 对象
         :param log_id: 执行日志ID
         """
-        # 提取所有需要的数据，避免在后台线程中访问关系属性
-        source_conn = {
-            'host': task.source_connection.host,
-            'port': task.source_connection.port,
-            'username': task.source_connection.username,
-            'password': task.source_connection.password
-        }
-        dest_conn = None
-        if task.dest_connection:
-            dest_conn = {
-                'host': task.dest_connection.host,
-                'port': task.dest_connection.port,
-                'username': task.dest_connection.username,
-                'password': task.dest_connection.password
-            }
-
-        # 保存任务属性副本
-        task_data = {
-            'source_table': task.source_table,
-            'source_database': task.source_database,
-            'dest_database': task.dest_database,
-            'dest_table': task.dest_table,
-            'where_condition': task.where_condition
-        }
+        task_id = task.id
+        try:
+            from flask import current_app
+            flask_app = current_app._get_current_object()
+        except Exception:
+            from app import app as flask_app
 
         def _run():
-            from app import app  # 延迟导入应用实例
             from extensions import db
-            from models import ExecutionLog
+            from models import ArchiveTask, ExecutionLog
 
-            log_file = cls.generate_log_file_path(
-                task_data['source_table'],
-                source_conn['host']
-            )
-
-            source_str = cls.build_source_str(
-                type('', (), source_conn)(),  # 简单的模拟对象
-                task_data['source_database'],
-                task_data['source_table']
-            )
-
-            dest_str = None
-            if dest_conn:
-                dest_str = cls.build_dest_str(
-                    type('', (), dest_conn)(),  # 简单的模拟对象
-                    task_data['dest_database'],
-                    task_data['dest_table']
-                )
-
-            command = cls.build_archive_command(
-                source_str,
-                dest_str,
-                task_data['where_condition'],
-                log_file
-            )
-
-            print(f"Executing async command: {command}")
-
-            # 使用 Popen 异步执行，不阻塞
-            process = subprocess.Popen(
-                command,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-
-            # 等待进程完成，超时1小时
-            try:
-                exit_code = process.wait()
-            except subprocess.TimeoutExpired:
-                process.kill()
-                exit_code = -1
-
-            # 更新日志，需要应用上下文
-            with app.app_context():
+            def _mark_failed(message):
                 log = ExecutionLog.query.get(log_id)
                 if log:
-                    end_time = datetime.datetime.now()
-                    if exit_code == 0:
-                        log.end_time = end_time
-                        log.status = 1
-                        log.log_file = log_file
-                        log.error_message = None
-                    else:
-                        # 尝试从日志文件读取错误信息
-                        error_msg = None
-                        try:
-                            if os.path.exists(log_file):
-                                with open(log_file, 'r', encoding='utf-8') as f:
-                                    error_msg = f.read().strip()
-                        except:
-                            pass
-                        if not error_msg:
-                            error_msg = f"pt-archiver execution failed (exit code: {exit_code})"
+                    log.end_time = datetime.datetime.now()
+                    log.status = 0
+                    log.error_message = message
+                    db.session.commit()
+                    print(f"Log {log_id} marked as failed: {message}")
 
-                        log.end_time = end_time
-                        log.status = 0
-                        log.log_file = log_file if os.path.exists(log_file) else None
-                        log.error_message = error_msg
+            with flask_app.app_context():
+                try:
+                    current_task = ArchiveTask.query.get(task_id)
+                    if not current_task or current_task.is_enabled == 0:
+                        _mark_failed('归档任务不存在或已禁用')
+                        return
 
+                    success, log_file, error_msg = cls.execute_archive(current_task)
+
+                    log = ExecutionLog.query.get(log_id)
+                    if not log:
+                        return
+
+                    log.end_time = datetime.datetime.now()
+                    log.status = 1 if success else 0
+                    log.log_file = log_file
+                    log.error_message = error_msg
                     db.session.commit()
                     print(f"Log {log_id} updated successfully")
-                else:
-                    print(f"Log {log_id} not found")
+                except Exception as e:
+                    db.session.rollback()
+                    _mark_failed(str(e))
 
         # 在后台线程中运行
         thread = threading.Thread(target=_run, daemon=True)

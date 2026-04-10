@@ -1,98 +1,138 @@
 <template>
   <AppLayout>
-    <section class="entry-grid" aria-label="创建优化任务">
-      <button type="button" class="entry-card entry-card--sql" @click="goToCreateSql">
-        <span class="entry-card__eyebrow">SQL 工作台</span>
-        <strong class="entry-card__title">优化单个 SQL 查询</strong>
-      </button>
-
-      <button type="button" class="entry-card entry-card--mybatis" @click="goToCreateMyBatis">
-        <span class="entry-card__eyebrow">XML 工作台</span>
-        <strong class="entry-card__title">优化 MyBatis XML 文件</strong>
-      </button>
-    </section>
-
-    <el-card shadow="never" class="table-card">
-      <div class="table-shell">
-        <div class="table-head">
-          <div>
-            <h3>历史任务</h3>
+    <div class="page-container">
+      <!-- 快捷操作区域 -->
+      <div class="quick-actions">
+        <button type="button" class="action-card action-card--primary" @click="goToCreateSql">
+          <div class="action-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
           </div>
+          <div class="action-content">
+            <div class="action-title">SQL 优化</div>
+            <div class="action-desc">优化单个 SQL 查询</div>
+          </div>
+        </button>
 
-          <div class="table-actions">
-            <div class="filter-group" role="tablist" aria-label="任务类型筛选">
+        <button type="button" class="action-card action-card--secondary" @click="goToCreateMyBatis">
+          <div class="action-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <div class="action-content">
+            <div class="action-title">MyBatis 优化</div>
+            <div class="action-desc">优化 XML 映射文件</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- 任务列表区域 -->
+      <div class="table-section">
+        <div class="section-header">
+          <div class="header-left">
+            <h3 class="section-title">优化任务</h3>
+            <span class="section-count">{{ store.total }} 条记录</span>
+          </div>
+          <div class="header-right">
+            <div class="filter-tabs">
               <button
                 v-for="option in filterOptions"
                 :key="option.value || 'all'"
                 type="button"
-                class="filter-chip"
+                class="filter-tab"
                 :class="{ 'is-active': store.taskType === option.value }"
                 @click="handleTypeChange(option.value)"
               >
                 {{ option.label }}
               </button>
             </div>
-
-            <el-button class="refresh-button" @click="store.fetchList">刷新</el-button>
+            <el-button class="btn-refresh" @click="store.fetchList">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+              刷新
+            </el-button>
           </div>
         </div>
 
-        <div v-if="!store.loading && store.list.length === 0" class="table-empty">
-          <strong>还没有优化任务，先从上方创建一个新任务</strong>
+        <!-- 空状态 -->
+        <div v-if="!store.loading && store.list.length === 0" class="empty-state">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <div class="empty-text">暂无优化任务</div>
+          <div class="empty-hint">点击上方卡片创建新的优化任务</div>
         </div>
 
+        <!-- 数据表格 -->
         <template v-else>
-          <el-table :data="store.list" v-loading="store.loading" class="task-table">
-            <el-table-column label="类型" width="110">
-              <template #default="{ row }">
-                <span class="type-pill" :class="`type-pill--${row.task_type}`">
-                  {{ row.task_type === 'sql' ? 'SQL' : 'MyBatis' }}
-                </span>
-              </template>
-            </el-table-column>
+          <div class="table-wrapper">
+            <el-table
+              :data="store.list"
+              v-loading="store.loading"
+              class="data-table"
+              :header-cell-style="{ background: '#f8fafc', color: '#475569' }"
+            >
+              <el-table-column label="类型" width="90">
+                <template #default="{ row }">
+                  <span :class="['type-badge', `type-badge--${row.task_type}`]">
+                    {{ row.task_type === 'sql' ? 'SQL' : 'MyBatis' }}
+                  </span>
+                </template>
+              </el-table-column>
 
-            <el-table-column label="对象" min-width="280" show-overflow-tooltip>
-              <template #default="{ row }">
-                <div class="task-object">
-                  <el-button link type="primary" class="task-link" @click="goToDetail(row.id)">
+              <el-table-column label="任务预览" min-width="280" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <button class="task-link" @click="goToDetail(row.id)">
                     {{ row.object_preview }}
+                  </button>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="状态" width="90">
+                <template #default="{ row }">
+                  <span :class="['status-badge', `status-badge--${row.status}`]">
+                    {{ statusText(row.status) }}
+                  </span>
+                </template>
+              </el-table-column>
+
+              <el-table-column prop="database_name" label="数据库" width="120" />
+              <el-table-column prop="database_host" label="主机" width="140" />
+              <el-table-column prop="created_at" label="创建时间" width="170" />
+
+              <el-table-column label="操作" width="70" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="goToDetail(row.id)" size="small">
+                    查看
                   </el-button>
-                </div>
-              </template>
-            </el-table-column>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
 
-            <el-table-column label="状态" width="110">
-              <template #default="{ row }">
-                <span class="status-pill" :class="`status-pill--${row.status}`">
-                  {{ statusText(row.status) }}
-                </span>
-              </template>
-            </el-table-column>
-
-            <el-table-column prop="database_name" label="库名" width="120" />
-            <el-table-column prop="database_host" label="数据库IP" width="140" />
-            <el-table-column prop="created_at" label="创建时间" width="170" />
-
-            <el-table-column label="操作" width="90" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" @click="goToDetail(row.id)">查看</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <el-pagination
-            class="task-pagination"
-            v-model:current-page="store.page"
-            v-model:page-size="store.perPage"
-            :total="store.total"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            @current-change="handlePageChange"
-            @size-change="handleSizeChange"
-          />
+          <div class="pagination-wrapper">
+            <el-pagination
+              v-model:current-page="store.page"
+              v-model:page-size="store.perPage"
+              :total="store.total"
+              :page-sizes="[10, 20, 50, 100]"
+              layout="total, sizes, prev, pager, next"
+              @current-change="handlePageChange"
+              @size-change="handleSizeChange"
+            />
+          </div>
         </template>
       </div>
-    </el-card>
+    </div>
   </AppLayout>
 </template>
 
@@ -145,271 +185,369 @@ function handleSizeChange(size: number) {
 }
 
 function statusText(status: OptimizationTaskStatus) {
-  if (status === 'queued') return '优化中'
+  if (status === 'queued') return '等待中'
   if (status === 'running') return '优化中'
-  if (status === 'completed') return '完成'
+  if (status === 'completed') return '已完成'
   return '失败'
 }
 </script>
 
 <style scoped>
-.entry-grid {
+.page-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 快捷操作区域 */
+.quick-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  margin-bottom: 16px;
 }
 
-.entry-card {
+.action-card {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  width: 100%;
-  padding: 22px;
-  border: 1px solid #d9e6f2;
-  border-radius: 8px;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid #e2e8f0;
   background: #ffffff;
-  box-shadow: 0 18px 40px rgba(15, 42, 61, 0.06);
-  text-align: left;
+  border-radius: 8px;
   cursor: pointer;
-  transition:
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    background-color 0.18s ease,
-    transform 0.18s ease;
+  transition: all 0.2s ease;
+  text-align: left;
 }
 
-.entry-card:hover {
-  border-color: #7dd3fc;
-  box-shadow: 0 18px 36px rgba(3, 105, 161, 0.1);
+.action-card:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
   transform: translateY(-1px);
 }
 
-.entry-card:focus-visible {
-  outline: none;
-  border-color: #0369a1;
-  box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.16);
+.action-card:active {
+  transform: translateY(0);
 }
 
-.entry-card--sql {
-  background: #ffffff;
+.action-card--primary .action-icon {
+  color: #3b82f6;
+  background: #eff6ff;
 }
 
-.entry-card__eyebrow {
-  display: inline-flex;
+.action-card--secondary .action-icon {
+  color: #059669;
+  background: #ecfdf5;
+}
+
+.action-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px 10px;
-  border-radius: 4px;
-  background: #e8f3fb;
-  color: #075985;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.entry-card__title {
-  color: #0f2a3d;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.table-card {
-  border: 1px solid #d9e6f2;
   border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.action-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.action-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.action-desc {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* 表格区域 */
+.table-section {
   background: #ffffff;
-  box-shadow: 0 18px 40px rgba(15, 42, 61, 0.06);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.table-shell {
-  padding: 22px;
-}
-
-.table-head {
+.section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
-.table-head h3 {
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f2a3d;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
 }
 
-.table-actions {
+.section-count {
+  font-size: 12px;
+  color: #64748b;
+  background: #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.header-right {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.filter-group {
+.filter-tabs {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px;
+  padding: 3px;
+  background: #e2e8f0;
   border-radius: 6px;
-  background: #f3f7fb;
 }
 
-.filter-chip {
+.filter-tab {
   border: none;
-  border-radius: 6px;
-  padding: 8px 14px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
   background: transparent;
-  color: #536779;
-  font-size: 13px;
-  font-weight: 600;
   cursor: pointer;
-  transition:
-    background-color 0.18s ease,
-    color 0.18s ease,
-    box-shadow 0.18s ease;
+  border-radius: 4px;
+  transition: all 0.15s ease;
 }
 
-.filter-chip:hover {
-  color: #0f2a3d;
+.filter-tab:hover {
+  color: #1e293b;
 }
 
-.filter-chip.is-active {
+.filter-tab.is-active {
   background: #ffffff;
-  color: #0369a1;
-  box-shadow: 0 6px 18px rgba(15, 42, 61, 0.08);
+  color: #3b82f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.filter-chip:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.16);
+.btn-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-color: #cbd5e1;
+  color: #475569;
+  font-size: 12px;
+  border-radius: 6px;
 }
 
-.refresh-button.el-button {
-  border-color: #d7e3ef;
-  color: #33546b;
+.btn-refresh svg {
+  width: 14px;
+  height: 14px;
 }
 
-.table-empty {
+/* 空状态 */
+.empty-state {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 32px;
-  border: 1px dashed #d9e6f2;
-  border-radius: 18px;
-  background: #f8fbfd;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 12px;
 }
 
-.table-empty strong {
-  color: #0f2a3d;
-  font-size: 16px;
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  color: #cbd5e1;
 }
 
-.task-object {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+.empty-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
 }
 
-.task-link.el-button {
-  justify-content: flex-start;
-  margin: 0;
+.empty-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* 表格 */
+.table-wrapper {
   padding: 0;
-  font-weight: 700;
 }
 
-.type-pill,
-.status-pill {
+.data-table {
+  border-radius: 0;
+}
+
+:deep(.data-table.el-table) {
+  border: none;
+}
+
+:deep(.data-table .el-table__inner-wrapper::before) {
+  display: none;
+}
+
+:deep(.data-table th.el-table__cell) {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+:deep(.data-table td.el-table__cell) {
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  font-size: 13px;
+}
+
+:deep(.data-table tr:hover > td) {
+  background: #f8fafc;
+}
+
+:deep(.data-table .cell) {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* 徽章 */
+.type-badge,
+.status-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 76px;
-  padding: 6px 10px;
+  min-width: 60px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
   border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
 }
 
-.type-pill--sql {
-  background: #e0f2fe;
-  color: #075985;
+.type-badge--sql {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
-.type-pill--mybatis {
-  background: #e9fdf3;
+.type-badge--mybatis {
+  background: #d1fae5;
   color: #047857;
 }
 
-.status-pill--queued,
-.status-pill--running {
-  background: #fff7dd;
-  color: #9a6700;
+.status-badge--queued {
+  background: #fef3c7;
+  color: #92400e;
 }
 
-.status-pill--completed {
-  background: #eafaf2;
-  color: #047857;
+.status-badge--running {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
-.status-pill--failed {
-  background: #feecec;
-  color: #b42318;
+.status-badge--completed {
+  background: #dcfce7;
+  color: #15803d;
 }
 
-.task-pagination {
-  margin-top: 18px;
+.status-badge--failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.task-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #3b82f6;
+  cursor: pointer;
+  text-align: left;
+}
+
+.task-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+/* 分页 */
+.pagination-wrapper {
+  display: flex;
   justify-content: flex-end;
+  padding: 14px 20px;
+  border-top: 1px solid #e2e8f0;
 }
 
-:deep(.el-table) {
-  border-radius: 8px;
-  overflow: hidden;
+:deep(.pagination-wrapper .el-pagination button) {
+  border-radius: 4px;
+  border-color: #e2e8f0;
 }
 
-:deep(.el-table th.el-table__cell) {
-  background: #f8fbfd;
-  color: #0f2a3d;
+:deep(.pagination-wrapper .el-pagination .el-pager li) {
+  border-radius: 4px;
 }
 
-:deep(.el-table .cell) {
-  padding-left: 10px;
-  padding-right: 10px;
+:deep(.pagination-wrapper .el-pagination .btn-prev),
+:deep(.pagination-wrapper .el-pagination .btn-next) {
+  min-width: 32px;
 }
 
+:deep(.pagination-wrapper .el-select .el-input__wrapper) {
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px #e2e8f0 inset;
+}
+
+/* 响应式 */
 @media (max-width: 960px) {
-  .entry-grid {
+  .quick-actions {
     grid-template-columns: 1fr 1fr;
   }
 
-  .table-head,
-  .table-actions {
-    align-items: stretch;
+  .section-header {
     flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .header-right {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
 @media (max-width: 768px) {
-  .entry-grid {
+  .quick-actions {
     grid-template-columns: 1fr;
   }
 
-  .table-shell {
-    padding: 18px;
-  }
-
-  .filter-group {
+  .filter-tabs {
     width: 100%;
     justify-content: space-between;
   }
 
-  .filter-chip {
+  .filter-tab {
     flex: 1;
-  }
-
-  .task-pagination {
-    overflow-x: auto;
+    text-align: center;
   }
 }
 </style>

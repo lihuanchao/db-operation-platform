@@ -1,101 +1,163 @@
 <template>
   <AppLayout>
-    <div class="page-header">
-      <h2>{{ title }}</h2>
-      <el-button @click="goBack">返回任务列表</el-button>
-    </div>
-
-    <el-card v-loading="store.detailLoading" shadow="never" class="meta-card">
-      <el-descriptions :column="3" border v-if="task">
-        <el-descriptions-item label="任务ID">{{ task.id }}</el-descriptions-item>
-        <el-descriptions-item label="类型">{{ task.task_type === 'sql' ? 'SQL' : 'MyBatis' }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ task.created_at }}</el-descriptions-item>
-        <el-descriptions-item label="数据库IP">{{ task.database_host }}</el-descriptions-item>
-        <el-descriptions-item label="库名">{{ task.database_name }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="statusTagType(task.status)">{{ statusText(task.status) }}</el-tag>
-        </el-descriptions-item>
-      </el-descriptions>
-      <el-alert
-        v-if="task?.status === 'failed' && task.error_message"
-        type="error"
-        :title="task.error_message"
-        show-icon
-        style="margin-top: 12px"
-      />
-    </el-card>
-
-    <el-card shadow="never" class="result-card">
-      <template #header>
-        <div class="card-header">
-          <span>写法优化</span>
-        </div>
-      </template>
-      <div class="compare-box">
-        <div class="compare-column">
-          <div class="column-header">
-            <h4>原文</h4>
-            <CopyButton v-if="originalContent" :text="originalContent" />
+    <div class="page-container">
+      <!-- 页面头部 -->
+      <div class="page-header">
+        <div class="header-left">
+          <div class="page-title-group">
+            <h1 class="page-title">{{ title }}</h1>
+            <span v-if="task" :class="['status-badge', `status-badge--${task.status}`]">
+              {{ statusText(task.status) }}
+            </span>
           </div>
-          <div ref="originalPaneRef" class="code-pane" @scroll="syncFromOriginal">
-            <div class="code-inner">
-              <div
-                v-for="(row, index) in diffRows"
-                :key="`o-${index}`"
-                class="code-row"
-              >
-                <span class="line-no">{{ index + 1 }}</span>
-                <span class="line-content" v-html="row.originalHtml"></span>
+        </div>
+        <button class="back-btn" @click="goBack">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          返回
+        </button>
+      </div>
+
+      <!-- 元信息面板 -->
+      <div class="info-panel" v-loading="store.detailLoading">
+        <div class="info-grid" v-if="task">
+          <div class="info-item">
+            <span class="info-label">任务 ID</span>
+            <span class="info-value">#{{ task.id }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">类型</span>
+            <span :class="['type-badge', `type-badge--${task.task_type}`]">
+              {{ task.task_type === 'sql' ? 'SQL' : 'MyBatis' }}
+            </span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">数据库</span>
+            <span class="info-value">{{ task.database_name }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">主机</span>
+            <span class="info-value">{{ task.database_host }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">创建时间</span>
+            <span class="info-value">{{ task.created_at }}</span>
+          </div>
+        </div>
+        <div v-if="task?.status === 'failed' && task.error_message" class="error-banner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>{{ task.error_message }}</span>
+        </div>
+      </div>
+
+      <!-- SQL 对比面板 -->
+      <div class="content-panel">
+        <div class="panel-header">
+          <div class="header-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7h16M4 12h16M4 17h7"/>
+            </svg>
+            SQL 写法优化
+          </div>
+        </div>
+        <div class="compare-container">
+          <div class="compare-side">
+            <div class="side-header">
+              <span class="side-label">原始 SQL</span>
+              <CopyButton v-if="originalContent" :text="originalContent" />
+            </div>
+            <div ref="originalPaneRef" class="code-area" @scroll="syncFromOriginal">
+              <div class="code-content">
+                <div
+                  v-for="(row, index) in diffRows"
+                  :key="`o-${index}`"
+                  class="code-line"
+                >
+                  <span class="line-text" v-html="row.originalHtml"></span>
+                </div>
+                <div class="spacer" :style="{ height: `${originalPaneSpacer}px` }" />
               </div>
-              <div class="pane-spacer" :style="{ height: `${originalPaneSpacer}px` }" />
             </div>
           </div>
-        </div>
-        <div class="compare-column">
-          <div class="column-header">
-            <h4>最终优化后</h4>
-            <CopyButton v-if="optimizedContent && optimizedContent !== '-'" :text="optimizedContent" />
+          <div class="compare-divider">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
           </div>
-          <div ref="optimizedPaneRef" class="code-pane" @scroll="syncFromOptimized">
-            <div class="code-inner">
-              <div
-                v-for="(row, index) in diffRows"
-                :key="`n-${index}`"
-                class="code-row"
-              >
-                <span class="line-no">{{ index + 1 }}</span>
-                <span class="line-content" v-html="row.optimizedHtml"></span>
+          <div class="compare-side">
+            <div class="side-header">
+              <span class="side-label">优化后 SQL</span>
+              <CopyButton v-if="optimizedContent && optimizedContent !== '-'" :text="optimizedContent" />
+            </div>
+            <div ref="optimizedPaneRef" class="code-area" @scroll="syncFromOptimized">
+              <div class="code-content">
+                <div
+                  v-for="(row, index) in diffRows"
+                  :key="`n-${index}`"
+                  class="code-line"
+                >
+                  <span class="line-text" v-html="row.optimizedHtml"></span>
+                </div>
+                <div class="spacer" :style="{ height: `${optimizedPaneSpacer}px` }" />
               </div>
-              <div class="pane-spacer" :style="{ height: `${optimizedPaneSpacer}px` }" />
             </div>
           </div>
         </div>
       </div>
-    </el-card>
 
-    <el-card shadow="never" class="result-card">
-      <template #header>
-        <div class="card-header">
-          <span>索引推荐</span>
+      <!-- 索引推荐面板 -->
+      <div class="content-panel">
+        <div class="panel-header">
+          <div class="header-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            索引推荐
+          </div>
           <CopyButton v-if="indexRecommendation && indexRecommendation !== '无需新增索引'" :text="indexRecommendation" />
         </div>
-      </template>
-      <pre class="suggestion-text">{{ indexRecommendation }}</pre>
-    </el-card>
-
-    <el-card shadow="never" class="result-card">
-      <template #header>
-        <div class="card-header">
-          <span>命中规则</span>
+        <div class="index-content">
+          <pre>{{ indexRecommendation }}</pre>
         </div>
-      </template>
-      <div class="rule-list">
-        <div v-for="rule in matchedRuleList" :key="rule" class="rule-item">
-          {{ rule }}
-        </div>
-        <span v-if="matchedRuleList.length === 0" class="empty-rule">未识别命中规则</span>
       </div>
-    </el-card>
+
+      <!-- 命中规则面板 -->
+      <div class="content-panel">
+        <div class="panel-header">
+          <div class="header-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            命中规则
+            <span v-if="matchedRuleList.length > 0" class="rule-count">{{ matchedRuleList.length }}</span>
+          </div>
+        </div>
+        <div class="rules-container">
+          <div v-for="(rule, idx) in matchedRuleList" :key="idx" class="rule-card">
+            <div class="rule-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div class="rule-text">{{ rule }}</div>
+          </div>
+          <div v-if="matchedRuleList.length === 0" class="empty-rules">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M8 15s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>
+            </svg>
+            <span>未识别命中规则</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -139,9 +201,9 @@ const task = computed(() => store.currentTask)
 
 const title = computed(() => {
   if (task.value?.task_type === 'mybatis') {
-    return '查看 ORM XML 文件优化结果'
+    return 'MyBatis 优化结果'
   }
-  return '查看 SQL 优化结果'
+  return 'SQL 优化结果'
 })
 
 const optimizedContent = computed(() => {
@@ -224,17 +286,10 @@ function goBack() {
 }
 
 function statusText(status: OptimizationTaskStatus) {
-  if (status === 'queued') return '优化中'
+  if (status === 'queued') return '等待中'
   if (status === 'running') return '优化中'
-  if (status === 'completed') return '完成'
+  if (status === 'completed') return '已完成'
   return '失败'
-}
-
-function statusTagType(status: OptimizationTaskStatus) {
-  if (status === 'queued') return 'info'
-  if (status === 'running') return 'warning'
-  if (status === 'completed') return 'success'
-  return 'danger'
 }
 
 function syncFromOriginal() {
@@ -416,127 +471,396 @@ function combineDiffParts(prefix: string, middle: string, tail: string): string 
 </script>
 
 <style scoped>
+.page-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 页面头部 */
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  justify-content: space-between;
 }
 
-.page-header h2 {
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.back-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.back-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.page-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.page-title {
   margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
 }
 
-.meta-card,
-.result-card {
-  margin-bottom: 20px;
+/* 信息面板 */
+.info-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 16px 20px;
 }
 
-.card-header {
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.error-banner svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* 内容面板 */
+.content-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-weight: 600;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
-.rule-list {
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.header-title svg {
+  width: 18px;
+  height: 18px;
+  color: #3b82f6;
+}
+
+.rule-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 10px;
+}
+
+/* 对比容器 */
+.compare-container {
+  display: flex;
+  gap: 0;
+}
+
+.compare-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.side-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.side-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.compare-divider {
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+}
+
+.compare-divider svg {
+  width: 18px;
+  height: 18px;
+  color: #94a3b8;
+}
+
+.code-area {
+  height: 380px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #ffffff;
+}
+
+.code-content {
+  min-width: 100%;
+}
+
+.code-line {
+  display: flex;
+  align-items: flex-start;
+  min-height: 24px;
+  font-family: 'Consolas', 'Monaco', 'SF Mono', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.line-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  flex: 1;
+  padding: 0 16px;
+  color: #1e293b;
+}
+
+.spacer {
+  width: 1px;
+  pointer-events: none;
+}
+
+/* 索引推荐 */
+.index-content {
+  padding: 14px 16px;
+}
+
+.index-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Consolas', 'Monaco', 'SF Mono', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 12px 14px;
+}
+
+/* 规则列表 */
+.rules-container {
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.rule-item {
-  padding: 10px 12px;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  background: #fafcff;
-  color: #303133;
-  line-height: 1.6;
-  font-size: 13px;
-}
-
-.empty-rule {
-  color: #909399;
-}
-
-.compare-box {
-  display: flex;
-  gap: 16px;
-}
-
-.compare-column {
-  flex: 1;
-  background: #f5f7fa;
-  border-radius: 8px;
-  padding: 12px;
-  min-width: 0;
-}
-
-.compare-column h4 {
-  margin: 0 0 8px;
-}
-
-.column-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.suggestion-text {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: 'Consolas', 'Monaco', monospace;
-  line-height: 1.6;
-}
-
-.code-pane {
-  height: 380px;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.code-inner {
-  min-width: 100%;
-}
-
-.code-row {
+.rule-card {
   display: flex;
   align-items: flex-start;
-  min-height: 24px;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 13px;
-  line-height: 1.7;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
 }
 
-.line-no {
-  width: 42px;
+.rule-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #16a34a;
   flex-shrink: 0;
-  padding: 0 8px 0 10px;
-  color: #9aa4b2;
-  user-select: none;
-  text-align: right;
+  margin-top: 1px;
 }
 
-.line-content {
-  white-space: pre-wrap;
-  word-break: break-word;
+.rule-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.rule-text {
   flex: 1;
-  padding-right: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #166534;
 }
 
-.pane-spacer {
-  width: 1px;
-  pointer-events: none;
+.empty-rules {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 10px;
+  color: #94a3b8;
+}
+
+.empty-rules svg {
+  width: 48px;
+  height: 48px;
+  color: #cbd5e1;
+}
+
+.empty-rules span {
+  font-size: 13px;
+}
+
+/* 徽章 */
+.type-badge,
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.type-badge--sql {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.type-badge--mybatis {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.status-badge--queued {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge--running {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.status-badge--completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-badge--failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* 响应式 */
+@media (max-width: 1200px) {
+  .info-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 @media (max-width: 960px) {
-  .compare-box {
+  .compare-container {
     flex-direction: column;
+  }
+
+  .compare-divider {
+    width: 100%;
+    height: 40px;
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .header-left {
+    flex-wrap: wrap;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

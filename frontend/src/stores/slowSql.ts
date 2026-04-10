@@ -67,6 +67,10 @@ export const useSlowSqlStore = defineStore('slowSql', () => {
       const res = await optimizeSlowSQL(checksum)
       if (res.data && currentDetail.value?.checksum === checksum) {
         currentDetail.value.optimized_suggestion = res.data.suggestion
+        currentDetail.value.writing_optimization = res.data.writing_optimization || ''
+        currentDetail.value.index_recommendation = res.data.index_recommendation || ''
+        currentDetail.value.optimized_content = res.data.optimized_content || null
+        currentDetail.value.matched_rules = res.data.matched_rules || ''
         currentDetail.value.is_optimized = 1
       }
       // Also update in list

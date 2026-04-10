@@ -272,6 +272,19 @@ class ExecutionLogApiTestCase(unittest.TestCase):
         self.assertFalse(fail_response.get_json()['success'])
         self.assertIn('permission denied', fail_response.get_json()['error'])
 
+    def test_archive_typed_log_content_supports_non_utf8_files(self):
+        log = self._create_archive_log(task_id=50, log_id=50)
+        with open(log.log_file, 'wb') as file_obj:
+            file_obj.write('执行成功'.encode('gbk'))
+
+        response = self.client.get(f'/api/execution-logs/archive/{log.id}/log-content')
+
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertTrue(body['success'])
+        self.assertTrue(body['data']['has_file'])
+        self.assertIn('执行成功', body['data']['content'])
+
     def test_flashback_typed_log_content_returns_empty_payload_while_task_is_waiting_for_log(self):
         task = self._create_flashback_task(task_id=23, status='queued', log_content=None)
         task.log_file = None

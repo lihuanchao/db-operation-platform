@@ -11,6 +11,10 @@ export interface SlowSQL {
   min_time?: number
   total_time?: number
   optimized_suggestion?: string | null
+  writing_optimization?: string | null
+  index_recommendation?: string | null
+  optimized_content?: string | null
+  matched_rules?: string | null
   is_optimized: number
   _selected?: boolean
 }

@@ -1,0 +1,59 @@
+<h2>归档任务新增页改版方向</h2>
+<p class="subtitle">目标：企业级、简洁、高效。请选择你更偏好的交互结构。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 轻量抽屉（推荐）</div>
+        <div class="mockup-body">
+          <div class="mock-nav">必填字段先展示：任务名 / 源库 / 源表 / 条件</div>
+          <div class="mock-content">可选配置折叠在“高级选项”中，默认收起</div>
+          <button class="mock-button">保存任务</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>抽屉式分层输入</h3>
+      <p>先完成关键字段，减少首屏干扰，适合高频新增。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 两步向导</div>
+        <div class="mockup-body">
+          <div class="mock-sidebar">Step 1 基础信息</div>
+          <div class="mock-content">Step 2 目标库与启用策略</div>
+          <button class="mock-button">上一步 / 下一步</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>流程化向导</h3>
+      <p>降低漏填概率，适合字段多且需按顺序理解的场景。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. 单页卡片分区</div>
+        <div class="mockup-body">
+          <div class="mock-content">基础信息卡 + 目标配置卡 + 归档条件卡（同屏）</div>
+          <button class="mock-button">保存任务</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>同屏完整编辑</h3>
+      <p>所有信息一次可见，适合熟练用户快速批量录入。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>默认视觉基线（企业运维）</h3>
+  <p>主色信任蓝、浅灰背景、高对比文字、12-14px 紧凑栅格、明确提交反馈。</p>
+</div>

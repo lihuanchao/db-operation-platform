@@ -1,0 +1,62 @@
+<h2>右侧抽屉细化方案（归档任务新增）</h2>
+<p class="subtitle">都保持“简洁高效”基调，重点差异在信息组织方式。</p>
+
+<div class="cards">
+  <div class="card" data-choice="d1" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">D1. 单列紧凑表单</div>
+        <div class="mockup-body">
+          <div class="mock-content">任务名</div>
+          <div class="mock-content">源库连接 / 源库 / 源表</div>
+          <div class="mock-content">归档条件</div>
+          <div class="mock-content">目标库（可选）</div>
+          <button class="mock-button">保存任务</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>最轻学习成本</h3>
+      <p>实现快、改动小，但可选项仍会占据滚动空间。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="d2" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">D2. 核心区 + 高级区（推荐）</div>
+        <div class="mockup-body">
+          <div class="mock-content">核心必填：任务名、源信息、归档条件</div>
+          <div class="mock-content">高级配置（折叠）：目标库、启用状态</div>
+          <button class="mock-button">保存并执行 / 仅保存</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>效率与清晰度平衡</h3>
+      <p>默认只看关键字段，专家用户可快速展开高级配置。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="d3" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">D3. 智能向导抽屉</div>
+        <div class="mockup-body">
+          <div class="mock-sidebar">步骤 1 核心信息</div>
+          <div class="mock-content">步骤 2 目标与策略</div>
+          <button class="mock-button">下一步</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>错误率最低</h3>
+      <p>引导最强，但交互层级更深，节奏略慢。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>推荐</h3>
+  <p><strong>D2</strong>：最符合企业运维高频录入场景，默认轻量，必要时可扩展。</p>
+</div>
