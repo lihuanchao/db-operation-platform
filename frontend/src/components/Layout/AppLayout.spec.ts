@@ -115,7 +115,7 @@ describe('AppLayout', () => {
     const { wrapper, router, layoutStore } = await mountLayout()
     const pushSpy = vi.spyOn(router, 'push')
 
-    layoutStore.openTab('/slow-sqls', '慢SQL管理')
+    layoutStore.openTab('/slow-sqls', 'SQL巡检')
     await flushPromises()
 
     await wrapper.get('[data-tab-path="/slow-sqls"]').trigger('click')
@@ -127,7 +127,7 @@ describe('AppLayout', () => {
     const { wrapper, router, layoutStore } = await mountLayout('/slow-sqls')
     const pushSpy = vi.spyOn(router, 'push')
 
-    layoutStore.openTab('/slow-sqls', '慢SQL管理')
+    layoutStore.openTab('/slow-sqls', 'SQL巡检')
     layoutStore.activateTab('/slow-sqls')
     await flushPromises()
 
@@ -143,7 +143,7 @@ describe('AppLayout', () => {
     const { wrapper, router, layoutStore } = await mountLayout()
     const pushSpy = vi.spyOn(router, 'push')
 
-    layoutStore.openTab('/slow-sqls', '慢SQL管理')
+    layoutStore.openTab('/slow-sqls', 'SQL巡检')
     layoutStore.activateTab(HOME_TAB.path)
     await flushPromises()
 
@@ -159,7 +159,7 @@ describe('AppLayout', () => {
     const { wrapper, router, layoutStore } = await mountLayout('/slow-sqls')
     const pushSpy = vi.spyOn(router, 'push')
 
-    layoutStore.openTab('/slow-sqls', '慢SQL管理')
+    layoutStore.openTab('/slow-sqls', 'SQL巡检')
     layoutStore.activateTab('/slow-sqls')
     await flushPromises()
 
@@ -177,7 +177,7 @@ describe('AppLayout', () => {
     const replaceSpy = vi.spyOn(router, 'replace')
     const logoutSpy = vi.spyOn(authStore, 'logout').mockResolvedValue()
 
-    layoutStore.openTab('/slow-sqls', '慢SQL管理')
+    layoutStore.openTab('/slow-sqls', 'SQL巡检')
     layoutStore.activateTab('/slow-sqls')
     await flushPromises()
 

@@ -117,7 +117,7 @@ describe('Sidebar', () => {
 
     const text = wrapper.text()
 
-    expect(text).toContain('SQL智能建议')
+    expect(text).toContain('SQL优化')
     expect(text).toContain('归档任务')
     expect(text).toContain('执行日志')
     expect(text).toContain('数据闪回')
@@ -126,7 +126,7 @@ describe('Sidebar', () => {
     expect(wrapper.find('[data-path="/execution-logs"]').exists()).toBe(true)
     expect(wrapper.find('[data-path="/flashback-tasks"]').exists()).toBe(true)
     expect(text).not.toContain('归档管理')
-    expect(text).not.toContain('慢SQL管理')
+    expect(text).not.toContain('SQL巡检')
     expect(text).not.toContain('连接管理')
   })
 

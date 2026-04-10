@@ -1,20 +1,12 @@
 <template>
   <div class="login-page">
     <main class="login-shell">
-      <el-card class="login-card" shadow="hover">
+      <el-card class="login-card" shadow="never">
         <div class="login-title">
           <h1>数据库运维平台</h1>
           <p>工号 + 密码登录</p>
         </div>
         <p class="sr-only" aria-live="polite">{{ errorMessage }}</p>
-        <el-alert
-          v-if="errorMessage"
-          class="form-alert"
-          type="error"
-          :closable="false"
-          show-icon
-          :title="errorMessage"
-        />
         <el-form class="login-form" @submit.prevent="handleSubmit">
           <el-form-item label="工号" required :error="fieldErrors.employee_no">
             <el-input
@@ -142,7 +134,6 @@ async function handleSubmit() {
     router.replace(authStore.homePath)
   } catch (error: any) {
     if (error?.response?.status === 401) {
-      fieldErrors.password = '请检查密码后重试'
       errorMessage.value = '您输入的用户名或密码错误，请重新输入'
       ElMessage.error(errorMessage.value)
       return
@@ -182,7 +173,7 @@ async function handleSubmit() {
   border-radius: 8px;
   border: 1px solid rgba(14, 116, 144, 0.25);
   background: #ffffff;
-  box-shadow: 0 24px 54px rgba(12, 74, 110, 0.16);
+  box-shadow: none;
   overflow: hidden;
   animation: card-enter 380ms ease-out;
 }
@@ -203,10 +194,6 @@ async function handleSubmit() {
   color: var(--login-color-muted);
   font-size: 14px;
   line-height: 1.7;
-}
-
-.form-alert {
-  margin-top: 16px;
 }
 
 .sr-only {
@@ -267,17 +254,23 @@ async function handleSubmit() {
   letter-spacing: 0.02em;
   border: none;
   background: var(--login-color-primary);
-  box-shadow: 0 12px 24px rgba(3, 105, 161, 0.26);
+  box-shadow: none !important;
 }
 
 .submit-btn:hover {
   transform: translateY(-1px);
   background: #075985;
+  box-shadow: none !important;
 }
 
 .submit-btn:focus-visible {
   outline: 2px solid rgba(3, 105, 161, 0.42);
   outline-offset: 2px;
+  box-shadow: none !important;
+}
+
+.submit-btn:active {
+  box-shadow: none !important;
 }
 
 .login-footer {

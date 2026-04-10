@@ -36,6 +36,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/OptimizationTaskDetail.vue')
   },
   {
+    path: '/sql-audit',
+    name: 'SqlAudit',
+    component: () => import('@/views/SqlAuditPlaceholder.vue')
+  },
+  {
     path: '/slow-sqls',
     name: 'SlowSQLList',
     component: () => import('@/views/SlowSQLList.vue')

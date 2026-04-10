@@ -81,6 +81,6 @@ describe('LoginView', () => {
     await flushPromises()
 
     expect(errorSpy).toHaveBeenCalledWith('您输入的用户名或密码错误，请重新输入')
-    expect(wrapper.text()).toContain('请检查密码后重试')
+    expect(wrapper.text()).not.toContain('请检查密码后重试')
   })
 })

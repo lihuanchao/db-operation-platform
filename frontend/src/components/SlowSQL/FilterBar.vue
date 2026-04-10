@@ -53,11 +53,11 @@
         />
       </el-form-item>
       <el-form-item class="filter-actions">
-        <el-button type="primary" @click="handleSearch">
+        <el-button type="primary" class="search-button" @click="handleSearch">
           <el-icon><Search /></el-icon>
           筛选
         </el-button>
-        <el-button @click="handleReset">重置</el-button>
+        <el-button class="reset-button" @click="handleReset">重置</el-button>
       </el-form-item>
     </el-form>
   </el-card>
@@ -106,7 +106,14 @@ function handleReset() {
 
 <style scoped>
 .filter-card {
-  margin-bottom: 20px;
+  border: 1px solid #d9e6f2;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 42, 61, 0.06);
+}
+
+.filter-card :deep(.el-card__body) {
+  padding: 18px 20px;
 }
 
 .filter-form {
@@ -125,7 +132,40 @@ function handleReset() {
   flex-shrink: 0;
 }
 
+.filter-form :deep(.el-form-item__label) {
+  color: #4f6579;
+  font-size: 13px;
+}
+
+.filter-form :deep(.el-input__wrapper),
+.filter-form :deep(.el-select__wrapper),
+.filter-form :deep(.el-date-editor.el-input__wrapper) {
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px #d7e3ef inset;
+}
+
+.filter-form :deep(.el-input__wrapper.is-focus),
+.filter-form :deep(.el-select__wrapper.is-focused),
+.filter-form :deep(.el-date-editor.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #0369a1 inset;
+}
+
 .filter-actions {
   margin-left: auto;
+}
+
+.search-button.el-button {
+  border-color: #0369a1;
+  background: #0369a1;
+}
+
+.search-button.el-button:hover {
+  border-color: #075985;
+  background: #075985;
+}
+
+.reset-button.el-button {
+  border-color: #d7e3ef;
+  color: #33546b;
 }
 </style>

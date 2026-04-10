@@ -47,6 +47,7 @@
                 <span class="line-no">{{ index + 1 }}</span>
                 <span class="line-content" v-html="row.originalHtml"></span>
               </div>
+              <div class="pane-spacer" :style="{ height: `${originalPaneSpacer}px` }" />
             </div>
           </div>
         </div>
@@ -65,6 +66,7 @@
                 <span class="line-no">{{ index + 1 }}</span>
                 <span class="line-content" v-html="row.optimizedHtml"></span>
               </div>
+              <div class="pane-spacer" :style="{ height: `${optimizedPaneSpacer}px` }" />
             </div>
           </div>
         </div>
@@ -98,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/Layout/AppLayout.vue'
 import CopyButton from '@/components/Common/CopyButton.vue'
@@ -112,6 +114,8 @@ const timer = ref<number | null>(null)
 const originalPaneRef = ref<HTMLElement | null>(null)
 const optimizedPaneRef = ref<HTMLElement | null>(null)
 const isSyncingScroll = ref(false)
+const originalPaneSpacer = ref(0)
+const optimizedPaneSpacer = ref(0)
 
 const RULE_LABELS: Record<string, string> = {
   rule01: '投影下推：禁止 SELECT *，仅选择必要列。',
@@ -175,17 +179,26 @@ const indexRecommendation = computed(() => {
 })
 
 onMounted(async () => {
+  window.addEventListener('resize', syncPaneScrollRange)
   const taskId = Number(route.params.id)
   if (!taskId) return
   await refreshTask(taskId)
+  await nextTick()
+  syncPaneScrollRange()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncPaneScrollRange)
   if (timer.value) {
     window.clearInterval(timer.value)
     timer.value = null
   }
 })
+
+watch(diffRows, async () => {
+  await nextTick()
+  syncPaneScrollRange()
+}, { immediate: true })
 
 async function refreshTask(taskId: number) {
   const detail = await store.fetchDetail(taskId)
@@ -239,6 +252,26 @@ function syncFromOptimized() {
   originalPaneRef.value.scrollTop = optimizedPaneRef.value.scrollTop
   requestAnimationFrame(() => {
     isSyncingScroll.value = false
+  })
+}
+
+function syncPaneScrollRange() {
+  if (!originalPaneRef.value || !optimizedPaneRef.value) {
+    return
+  }
+  originalPaneSpacer.value = 0
+  optimizedPaneSpacer.value = 0
+  requestAnimationFrame(() => {
+    const originalHeight = originalPaneRef.value?.scrollHeight ?? 0
+    const optimizedHeight = optimizedPaneRef.value?.scrollHeight ?? 0
+    if (originalHeight === optimizedHeight) {
+      return
+    }
+    if (originalHeight > optimizedHeight) {
+      optimizedPaneSpacer.value = originalHeight - optimizedHeight
+    } else {
+      originalPaneSpacer.value = optimizedHeight - originalHeight
+    }
   })
 }
 
@@ -460,7 +493,7 @@ function combineDiffParts(prefix: string, middle: string, tail: string): string 
 
 .code-pane {
   height: 380px;
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
   border: 1px solid #dbe3ef;
   border-radius: 8px;
@@ -494,6 +527,11 @@ function combineDiffParts(prefix: string, middle: string, tail: string): string 
   word-break: break-word;
   flex: 1;
   padding-right: 12px;
+}
+
+.pane-spacer {
+  width: 1px;
+  pointer-events: none;
 }
 
 @media (max-width: 960px) {

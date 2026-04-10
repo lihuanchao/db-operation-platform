@@ -109,7 +109,7 @@ const authStore = useAuthStore()
 
 const userMenuOpen = ref(false)
 
-const asideWidth = computed(() => (layoutStore.collapsed ? '64px' : '220px'))
+const asideWidth = computed(() => (layoutStore.collapsed ? '64px' : '192px'))
 const ROLE_LABELS = new Set(['管理员', '普通用户'])
 
 const userName = computed(() => {
@@ -191,8 +191,8 @@ watch(
   left: 0;
   right: 0;
   z-index: 30;
-  height: 64px;
-  padding: 0 24px;
+  height: 42px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -204,23 +204,23 @@ watch(
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 6px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .brand-logo {
-  width: 36px;
-  height: 36px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
 }
 
 .brand-title {
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 700;
   color: #1a2a3a;
   letter-spacing: 0.02em;
@@ -236,8 +236,8 @@ watch(
 }
 
 .collapse-toggle {
-  width: 36px;
-  height: 36px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border-radius: 6px;
   background: #eef4fb;
@@ -253,20 +253,20 @@ watch(
 }
 
 .user-trigger {
-  min-width: 112px;
-  height: 40px;
-  padding: 0 14px;
+  min-width: 88px;
+  height: 26px;
+  padding: 0 8px;
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
   border-radius: 6px;
   background: #f4f7fb;
   color: #1a2a3a;
 }
 
 .user-name {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -295,7 +295,7 @@ watch(
 
 .layout-aside {
   position: fixed;
-  top: 64px;
+  top: 42px;
   left: 0;
   bottom: 0;
   z-index: 20;
@@ -306,20 +306,22 @@ watch(
 
 .layout-main {
   min-height: 100vh;
-  padding-top: 112px;
+  padding-top: 74px;
+  display: flex;
+  flex-direction: column;
   transition: margin-left 0.2s ease;
 }
 
 .layout-tabs {
   position: fixed;
-  top: 64px;
+  top: 42px;
   right: 0;
   z-index: 25;
-  height: 48px;
-  padding: 8px 20px 8px 16px;
+  height: 32px;
+  padding: 3px 10px 3px 8px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
   overflow-x: auto;
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -335,11 +337,11 @@ watch(
 .layout-tab {
   min-width: 0;
   max-width: 240px;
-  height: 32px;
-  padding: 0 8px 0 12px;
+  height: 22px;
+  padding: 0 5px 0 6px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   border: 1px solid transparent;
   border-radius: 4px;
   background: #e5edf7;
@@ -359,26 +361,30 @@ watch(
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 .layout-tab-close {
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   border-radius: 4px;
   color: inherit;
-  font-size: 16px;
+  font-size: 11px;
   line-height: 1;
 }
 
 .layout-content {
-  padding: 24px;
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  display: flex;
 }
 
 .main-content {
-  min-height: calc(100vh - 136px);
-  padding: 24px;
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 12px 32px rgba(15, 35, 58, 0.08);
@@ -386,23 +392,23 @@ watch(
 
 @media (max-width: 960px) {
   .layout-topbar {
-    padding: 0 16px;
+    padding: 0 8px;
   }
 
   .brand-title {
-    font-size: 16px;
+    font-size: 12px;
   }
 
   .layout-tabs {
-    padding-right: 12px;
+    padding-right: 8px;
   }
 
   .layout-content {
-    padding: 16px;
+    padding: 6px;
   }
 
   .main-content {
-    padding: 16px;
+    padding: 6px;
   }
 }
 </style>

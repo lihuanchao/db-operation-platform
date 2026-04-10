@@ -7,7 +7,7 @@
           <p>按数据库、表和状态快速筛选任务记录。</p>
         </div>
 
-        <el-button type="primary" class="create-task-btn" @click="goToCreate">
+        <el-button type="primary" class="create-task-btn" @click="openCreateDialog">
           新建任务
         </el-button>
       </div>
@@ -45,14 +45,6 @@
               <el-option label="delete" value="delete" />
               <el-option label="insert" value="insert" />
               <el-option label="update" value="update" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="输出类型">
-            <el-select v-model="form.work_type" class="filter-control" placeholder="全部" clearable>
-              <el-option label="全部" value="" />
-              <el-option label="2sql" value="2sql" />
-              <el-option label="rollback" value="rollback" />
-              <el-option label="stats" value="stats" />
             </el-select>
           </el-form-item>
           <el-form-item class="filter-actions">
@@ -110,34 +102,178 @@
           @size-change="handleSizeChange"
         />
       </el-card>
+
+      <el-dialog
+        v-model="createDialogVisible"
+        title="新建数据闪回任务"
+        width="920px"
+        class="flashback-create-dialog"
+        destroy-on-close
+      >
+        <el-form :model="createForm" label-position="top" class="create-form">
+          <el-row :gutter="12">
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="数据库连接" required>
+                <el-select
+                  v-model="createForm.db_connection_id"
+                  placeholder="请选择数据库连接"
+                  filterable
+                  class="full-width"
+                >
+                  <el-option
+                    v-for="conn in authStore.authorizedConnections"
+                    :key="conn.id"
+                    :label="`${conn.connection_name} (${conn.host}:${conn.port})`"
+                    :value="conn.id"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="模式">
+                <el-input :model-value="'repl'" disabled />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="12">
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="SQL 类型" required>
+                <el-radio-group v-model="createForm.sql_type" class="chip-group">
+                  <el-radio-button value="delete">delete</el-radio-button>
+                  <el-radio-button value="insert">insert</el-radio-button>
+                  <el-radio-button value="update">update</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="输出类型" required>
+                <el-radio-group v-model="createForm.work_type" class="chip-group">
+                  <el-radio-button value="2sql">2sql</el-radio-button>
+                  <el-radio-button value="rollback">rollback</el-radio-button>
+                  <el-radio-button value="stats">stats</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="12">
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="数据库名" required>
+                <el-input v-model="createForm.database_name" placeholder="数据库名" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="表名" required>
+                <el-input v-model="createForm.table_name" placeholder="表名" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="12">
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="开始时间">
+                <el-date-picker
+                  v-model="createForm.start_datetime"
+                  type="datetime"
+                  value-format="YYYY-MM-DD HH:mm:ss"
+                  format="YYYY-MM-DD HH:mm:ss"
+                  placeholder="请选择开始时间"
+                  class="full-width"
+                  clearable
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="结束时间">
+                <el-date-picker
+                  v-model="createForm.stop_datetime"
+                  type="datetime"
+                  value-format="YYYY-MM-DD HH:mm:ss"
+                  format="YYYY-MM-DD HH:mm:ss"
+                  placeholder="请选择结束时间"
+                  class="full-width"
+                  clearable
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="12">
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="开始文件">
+                <el-input v-model="createForm.start_file" placeholder="请输入开始 binlog 文件" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="12">
+              <el-form-item label="结束文件">
+                <el-input v-model="createForm.stop_file" placeholder="请输入结束 binlog 文件" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </el-form>
+        <template #footer>
+          <div class="dialog-footer">
+            <el-button @click="createDialogVisible = false">取消</el-button>
+            <el-button type="primary" :loading="store.formLoading" @click="handleCreateSubmit">
+              提交任务
+            </el-button>
+          </div>
+        </template>
+      </el-dialog>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import AppLayout from '@/components/Layout/AppLayout.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useFlashbackTaskStore } from '@/stores/flashbackTask'
 import type { FlashbackSqlType, FlashbackTaskStatus, FlashbackWorkType } from '@/types'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const store = useFlashbackTaskStore()
 
 const form = reactive({
   database_name: '',
   table_name: '',
   status: '' as FlashbackTaskStatus | '',
-  sql_type: '' as FlashbackSqlType | '',
-  work_type: '' as FlashbackWorkType | ''
+  sql_type: '' as FlashbackSqlType | ''
+})
+
+const createDialogVisible = ref(false)
+const createForm = reactive({
+  db_connection_id: undefined as number | undefined,
+  database_name: '',
+  table_name: '',
+  sql_type: 'delete' as FlashbackSqlType,
+  work_type: '2sql' as FlashbackWorkType,
+  start_datetime: '' as string | null,
+  stop_datetime: '' as string | null,
+  start_file: '',
+  stop_file: ''
 })
 
 onMounted(() => {
   store.fetchList()
 })
 
-function goToCreate() {
-  router.push('/flashback-tasks/create')
+async function openCreateDialog() {
+  createDialogVisible.value = true
+  if (!authStore.authorizedConnections.length) {
+    try {
+      await authStore.fetchAuthorizedConnections()
+    } catch {
+      ElMessage.error('加载连接列表失败，请稍后重试')
+    }
+  }
+  if (!createForm.db_connection_id && authStore.authorizedConnections.length === 1) {
+    createForm.db_connection_id = authStore.authorizedConnections[0].id
+  }
 }
 
 function goToDetail(id: number) {
@@ -150,7 +286,7 @@ function handleSearch() {
     table_name: form.table_name.trim(),
     status: form.status,
     sql_type: form.sql_type,
-    work_type: form.work_type
+    work_type: ''
   })
   store.fetchList()
 }
@@ -160,7 +296,6 @@ function handleReset() {
   form.table_name = ''
   form.status = ''
   form.sql_type = ''
-  form.work_type = ''
   store.resetFilters()
   store.fetchList()
 }
@@ -171,6 +306,63 @@ function handlePageChange(page: number) {
 
 function handleSizeChange(size: number) {
   store.setPageSize(size)
+}
+
+function normalizeOptionalString(value: string | null | undefined) {
+  if (typeof value !== 'string') {
+    return ''
+  }
+  return value.trim()
+}
+
+function canSubmitCreateForm() {
+  return Boolean(
+    createForm.db_connection_id &&
+      createForm.database_name.trim() &&
+      createForm.table_name.trim() &&
+      createForm.sql_type &&
+      createForm.work_type
+  )
+}
+
+function resetCreateForm() {
+  createForm.db_connection_id = undefined
+  createForm.database_name = ''
+  createForm.table_name = ''
+  createForm.sql_type = 'delete'
+  createForm.work_type = '2sql'
+  createForm.start_datetime = ''
+  createForm.stop_datetime = ''
+  createForm.start_file = ''
+  createForm.stop_file = ''
+}
+
+async function handleCreateSubmit() {
+  if (!canSubmitCreateForm()) {
+    ElMessage.warning('请补全必填项')
+    return
+  }
+
+  const startDatetime = normalizeOptionalString(createForm.start_datetime)
+  const stopDatetime = normalizeOptionalString(createForm.stop_datetime)
+
+  const payload = {
+    db_connection_id: createForm.db_connection_id as number,
+    database_name: createForm.database_name.trim(),
+    table_name: createForm.table_name.trim(),
+    sql_type: createForm.sql_type,
+    work_type: createForm.work_type,
+    ...(startDatetime ? { start_datetime: startDatetime } : {}),
+    ...(stopDatetime ? { stop_datetime: stopDatetime } : {}),
+    ...(createForm.start_file.trim() ? { start_file: createForm.start_file.trim() } : {}),
+    ...(createForm.stop_file.trim() ? { stop_file: createForm.stop_file.trim() } : {})
+  }
+
+  const created = await store.createTask(payload)
+  if (created?.id) {
+    createDialogVisible.value = false
+    resetCreateForm()
+  }
 }
 
 function statusText(status: FlashbackTaskStatus) {
@@ -287,5 +479,31 @@ function statusText(status: FlashbackTaskStatus) {
   display: flex;
   justify-content: flex-end;
   margin-top: 14px;
+}
+
+.create-form :deep(.el-form-item) {
+  margin-bottom: 8px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.chip-group {
+  width: 100%;
+}
+
+.chip-group :deep(.el-radio-button) {
+  width: 33.33%;
+}
+
+.chip-group :deep(.el-radio-button__inner) {
+  width: 100%;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 </style>

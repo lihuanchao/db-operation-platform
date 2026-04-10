@@ -1,117 +1,119 @@
 <template>
   <AppLayout>
-    <div class="page-header">
-      <h2>权限管理</h2>
-    </div>
+    <div class="permission-page">
+      <div class="page-header">
+        <h2>权限管理</h2>
+      </div>
 
-    <div class="permission-shell">
-      <el-card shadow="never" class="panel-card">
-        <div class="panel-body">
-          <div class="panel-head">
-            <div>
-              <h3>用户列表</h3>
-            </div>
-            <el-input
-              v-model="userKeyword"
-              placeholder="搜索姓名/工号"
-              clearable
-              class="panel-search"
-            />
-          </div>
-
-          <div v-if="userStore.loading" v-loading="true" class="user-list user-list--loading"></div>
-          <div v-else-if="filteredUsers.length === 0" class="panel-empty panel-empty--stretch">
-            {{ userEmptyText }}
-          </div>
-          <div v-else class="user-list" role="list">
-            <div class="list-head list-head--user">
-              <span>用户名</span>
-              <span>工号</span>
-              <span>部门</span>
-            </div>
-            <button
-              v-for="user in filteredUsers"
-              :key="user.id"
-              type="button"
-              class="user-card"
-              :class="{ 'is-active': user.id === currentUserId, 'is-admin': user.role_code === 'admin' }"
-              @click="handleSelectUser(user)"
-            >
-              <span class="list-cell user-card__name">{{ user.real_name }}</span>
-              <span class="list-cell">{{ user.employee_no }}</span>
-              <span class="list-cell">{{ user.department }}</span>
-            </button>
-          </div>
-        </div>
-      </el-card>
-
-      <el-card shadow="never" class="panel-card">
-        <div class="panel-body">
-          <div class="panel-head">
-            <div>
-              <h3>连接授权</h3>
-              <p>{{ filteredConnections.length }} 项匹配结果</p>
-            </div>
-            <div class="panel-head-actions">
+      <div class="permission-shell">
+        <el-card shadow="never" class="panel-card">
+          <div class="panel-body">
+            <div class="panel-head">
+              <div>
+                <h3>用户列表</h3>
+              </div>
               <el-input
-                v-model="connectionKeyword"
-                placeholder="搜索连接名称/主机地址"
+                v-model="userKeyword"
+                placeholder="搜索姓名/工号"
                 clearable
                 class="panel-search"
               />
-              <el-button
-                type="primary"
-                class="permission-save"
-                :disabled="!canSave"
-                :loading="saveLoading"
-                @click="save"
+            </div>
+
+            <div v-if="userStore.loading" v-loading="true" class="user-list user-list--loading"></div>
+            <div v-else-if="filteredUsers.length === 0" class="panel-empty panel-empty--stretch">
+              {{ userEmptyText }}
+            </div>
+            <div v-else class="user-list" role="list">
+              <div class="list-head list-head--user">
+                <span>用户名</span>
+                <span>工号</span>
+                <span>部门</span>
+              </div>
+              <button
+                v-for="user in filteredUsers"
+                :key="user.id"
+                type="button"
+                class="user-card"
+                :class="{ 'is-active': user.id === currentUserId, 'is-admin': user.role_code === 'admin' }"
+                @click="handleSelectUser(user)"
               >
-                保存授权
-              </el-button>
+                <span class="list-cell user-card__name">{{ user.real_name }}</span>
+                <span class="list-cell">{{ user.employee_no }}</span>
+                <span class="list-cell">{{ user.department }}</span>
+              </button>
             </div>
           </div>
+        </el-card>
 
-          <div v-if="!selectedUser" class="panel-empty panel-empty--stretch">
-            请选择左侧普通用户进行授权
-          </div>
-          <template v-else>
-            <div class="selection-summary">
+        <el-card shadow="never" class="panel-card">
+          <div class="panel-body">
+            <div class="panel-head">
               <div>
-                <p class="summary-label">当前用户</p>
-                <strong class="summary-name">{{ currentUserLabel }}</strong>
+                <h3>连接授权</h3>
+                <p>{{ filteredConnections.length }} 项匹配结果</p>
               </div>
-              <span class="summary-count">已授权 {{ grantedCount }} 项</span>
+              <div class="panel-head-actions">
+                <el-input
+                  v-model="connectionKeyword"
+                  placeholder="搜索连接名称/主机地址"
+                  clearable
+                  class="panel-search"
+                />
+                <el-button
+                  type="primary"
+                  class="permission-save"
+                  :disabled="!canSave"
+                  :loading="saveLoading"
+                  @click="save"
+                >
+                  保存授权
+                </el-button>
+              </div>
             </div>
 
-            <div v-if="filteredConnections.length === 0" class="panel-empty panel-empty--stretch">
-              {{ connectionEmptyText }}
+            <div v-if="!selectedUser" class="panel-empty panel-empty--stretch">
+              请选择左侧普通用户进行授权
             </div>
-            <div v-else class="connection-list" role="list">
-              <div class="list-head list-head--connection">
-                <span>连接名称</span>
-                <span>主机地址</span>
-                <span>选择</span>
+            <template v-else>
+              <div class="selection-summary">
+                <div>
+                  <p class="summary-label">当前用户</p>
+                  <strong class="summary-name">{{ currentUserLabel }}</strong>
+                </div>
+                <span class="summary-count">已授权 {{ grantedCount }} 项</span>
               </div>
-              <div
-                v-for="connection in filteredConnections"
-                :key="connection.id"
-                class="connection-card"
-                :class="{ 'is-selected': isConnectionSelected(connection.id) }"
-                tabindex="0"
-                role="checkbox"
-                :aria-checked="isConnectionSelected(connection.id)"
-                @click="toggleConnection(connection.id)"
-                @keydown.enter.prevent="toggleConnection(connection.id)"
-                @keydown.space.prevent="toggleConnection(connection.id)"
-              >
-                <span class="list-cell connection-card__title">{{ connection.connection_name }}</span>
-                <span class="list-cell connection-card__host">{{ connection.host || '-' }}</span>
-                <span class="connection-card__marker" aria-hidden="true"></span>
+
+              <div v-if="filteredConnections.length === 0" class="panel-empty panel-empty--stretch">
+                {{ connectionEmptyText }}
               </div>
-            </div>
-          </template>
-        </div>
-      </el-card>
+              <div v-else class="connection-list" role="list">
+                <div class="list-head list-head--connection">
+                  <span>连接名称</span>
+                  <span>主机地址</span>
+                  <span>选择</span>
+                </div>
+                <div
+                  v-for="connection in filteredConnections"
+                  :key="connection.id"
+                  class="connection-card"
+                  :class="{ 'is-selected': isConnectionSelected(connection.id) }"
+                  tabindex="0"
+                  role="checkbox"
+                  :aria-checked="isConnectionSelected(connection.id)"
+                  @click="toggleConnection(connection.id)"
+                  @keydown.enter.prevent="toggleConnection(connection.id)"
+                  @keydown.space.prevent="toggleConnection(connection.id)"
+                >
+                  <span class="list-cell connection-card__title">{{ connection.connection_name }}</span>
+                  <span class="list-cell connection-card__host">{{ connection.host || '-' }}</span>
+                  <span class="connection-card__marker" aria-hidden="true"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </el-card>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -222,13 +224,21 @@ async function save() {
 </script>
 
 <style scoped>
+.permission-page {
+  height: calc(100dvh - 86px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .page-header {
-  margin-bottom: 18px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   color: #0f2a3d;
 }
@@ -236,11 +246,14 @@ async function save() {
 .permission-shell {
   display: grid;
   grid-template-columns: minmax(260px, 0.92fr) minmax(360px, 1.28fr);
-  gap: 18px;
+  gap: 12px;
   align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .panel-card {
+  height: 100%;
   border: 1px solid #d9e6f2;
   border-radius: 8px;
   background: #ffffff;
@@ -250,17 +263,18 @@ async function save() {
 .panel-body {
   display: flex;
   flex-direction: column;
-  min-height: 620px;
-  padding: 22px;
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
 }
 
 .panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 9px 10px;
   border: 1px solid #d9e6f2;
   border-radius: 8px;
   background: #f8fbfd;
@@ -268,26 +282,26 @@ async function save() {
 
 .panel-head h3 {
   margin: 0;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
   color: #0f2a3d;
 }
 
 .panel-head p {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: #6b7c8f;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .panel-search {
-  width: 220px;
+  width: 200px;
   flex-shrink: 0;
 }
 
 .panel-head-actions {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .user-list,
@@ -301,6 +315,13 @@ async function save() {
   min-height: 0;
   overflow: auto;
   padding-right: 0;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.user-list::-webkit-scrollbar,
+.connection-list::-webkit-scrollbar {
+  display: none;
 }
 
 .user-list--loading {
@@ -313,8 +334,8 @@ async function save() {
   z-index: 2;
   display: grid;
   align-items: center;
-  min-height: 42px;
-  padding: 0 16px;
+  min-height: 36px;
+  padding: 0 12px;
   border-bottom: 1px solid #e2e8f0;
   background: #f8fbfd;
   color: #5f7287;
@@ -337,16 +358,16 @@ async function save() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .user-card {
   display: grid;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  min-height: 48px;
-  padding: 0 16px;
+  min-height: 42px;
+  padding: 0 12px;
   border: none;
   border-bottom: 1px solid #edf2f7;
   background: #ffffff;
@@ -381,7 +402,7 @@ async function save() {
 
 .user-card__name {
   color: #0f2a3d;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -389,7 +410,7 @@ async function save() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
+  padding: 12px;
   border: 1px dashed #d9e6f2;
   border-radius: 8px;
   background: #f8fbfd;
@@ -407,23 +428,23 @@ async function save() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
-  padding: 16px 18px;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
   border: 1px solid #dbeafe;
   border-radius: 8px;
   background: #f0f7ff;
 }
 
 .summary-label {
-  margin: 0 0 6px;
+  margin: 0 0 2px;
   color: #5f7287;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .summary-name {
   color: #0f2a3d;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -432,25 +453,25 @@ async function save() {
   align-items: center;
   justify-content: center;
   white-space: nowrap;
-  padding: 8px 12px;
+  padding: 6px 8px;
   border-radius: 8px;
   background: #ffffff;
   color: #0369a1;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .connection-list {
   flex: 1;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .connection-card {
   display: grid;
   align-items: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 0 16px;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 12px;
   border: none;
   border-bottom: 1px solid #edf2f7;
   background: #ffffff;
@@ -480,20 +501,20 @@ async function save() {
 
 .connection-card__title {
   color: #0f2a3d;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .connection-card__host {
   color: #64748b;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .connection-card__marker {
   position: relative;
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: 2px solid #94a3b8;
   border-radius: 999px;
   background: #ffffff;
@@ -522,6 +543,10 @@ async function save() {
 }
 
 @media (max-width: 992px) {
+  .permission-page {
+    height: calc(100dvh - 82px);
+  }
+
   .permission-shell {
     grid-template-columns: 1fr;
   }
@@ -532,8 +557,12 @@ async function save() {
 }
 
 @media (max-width: 768px) {
+  .permission-page {
+    height: calc(100dvh - 78px);
+  }
+
   .panel-body {
-    padding: 18px;
+    padding: 12px;
   }
 
   .panel-head,

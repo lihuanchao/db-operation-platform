@@ -1,118 +1,122 @@
 <template>
   <AppLayout>
-    <div class="page-header">
-      <div class="page-title-group">
-        <h2>归档任务管理</h2>
-        <p v-if="locatedTask" class="page-context" data-testid="archive-context">
-          已定位到任务：{{ locatedTask.task_name }}，共 1 条记录
-        </p>
+    <div class="page-shell">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h2>归档任务管理</h2>
+          <p v-if="locatedTask" class="page-context" data-testid="archive-context">
+            已定位到任务：{{ locatedTask.task_name }}，共 1 条记录
+          </p>
+        </div>
+        <el-button type="primary" @click="handleAddTask">
+          <el-icon><Plus /></el-icon>
+          新增归档任务
+        </el-button>
       </div>
-      <el-button type="primary" @click="handleAddTask">
-        <el-icon><Plus /></el-icon>
-        新增归档任务
-      </el-button>
+
+      <el-card shadow="never" class="filter-card">
+        <el-form :model="filters" inline>
+          <el-form-item label="任务名称">
+            <el-input v-model="filters.task_name" placeholder="请输入任务名称" clearable />
+          </el-form-item>
+          <el-form-item label="源库连接">
+            <el-select v-model="filters.source_connection_id" placeholder="请选择源库连接" clearable style="width: 200px">
+              <el-option
+                v-for="conn in connectionList"
+                :key="conn.id"
+                :label="conn.connection_name"
+                :value="conn.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleSearch">
+              <el-icon><Search /></el-icon>
+              搜索
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><Refresh /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <el-card shadow="never" class="table-card">
+        <div class="table-wrap">
+          <el-table :data="displayRows" v-loading="store.loading" stripe class="archive-table" table-layout="fixed" height="100%">
+            <el-table-column prop="task_name" label="任务名称" min-width="110" show-overflow-tooltip />
+            <el-table-column prop="source_connection.connection_name" label="源库连接" min-width="100" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.source_connection?.connection_name || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="source_database" label="源库" min-width="85" show-overflow-tooltip>
+              <template #default="{ row }">
+                <el-tag size="small">{{ row.source_database }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="source_table" label="源表" min-width="85" show-overflow-tooltip>
+              <template #default="{ row }">
+                <el-tag size="small">{{ row.source_table }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="dest_connection.connection_name" label="目标库连接" min-width="100" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.dest_connection?.connection_name || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="dest_database" label="目标库" min-width="85" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.dest_database || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="dest_table" label="目标表" min-width="85" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.dest_table || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="is_enabled" label="状态" min-width="72">
+              <template #default="{ row }">
+                <el-tag :type="row.is_enabled ? 'success' : 'info'" size="small">
+                  {{ row.is_enabled ? '启用' : '禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="updated_at" label="更新时间" min-width="130" show-overflow-tooltip />
+            <el-table-column label="操作" min-width="150" align="center">
+              <template #default="{ row }">
+                <div class="action-buttons">
+                  <el-button link type="primary" size="small" @click="handleExecute(row)">
+                    执行
+                  </el-button>
+                  <el-button link type="primary" size="small" @click="handleCronManagement(row)">
+                    定时
+                  </el-button>
+                  <el-button link type="primary" size="small" @click="handleEdit(row)">
+                    编辑
+                  </el-button>
+                  <el-button link type="danger" size="small" @click="handleDelete(row)">
+                    删除
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <el-pagination
+          :current-page="displayPage"
+          :page-size="displayPerPage"
+          :total="displayTotal"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          class="table-pagination"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </el-card>
     </div>
-
-    <el-card shadow="never" class="filter-card">
-      <el-form :model="filters" inline>
-        <el-form-item label="任务名称">
-          <el-input v-model="filters.task_name" placeholder="请输入任务名称" clearable />
-        </el-form-item>
-        <el-form-item label="源库连接">
-          <el-select v-model="filters.source_connection_id" placeholder="请选择源库连接" clearable style="width: 200px">
-            <el-option
-              v-for="conn in connectionList"
-              :key="conn.id"
-              :label="conn.connection_name"
-              :value="conn.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">
-            <el-icon><Search /></el-icon>
-            搜索
-          </el-button>
-          <el-button @click="handleReset">
-            <el-icon><Refresh /></el-icon>
-            重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card shadow="never" class="table-card">
-      <el-table :data="displayRows" v-loading="store.loading" stripe style="width: 100%">
-        <el-table-column prop="task_name" label="任务名称" min-width="150" />
-        <el-table-column prop="source_connection.connection_name" label="源库连接" min-width="130">
-          <template #default="{ row }">
-            {{ row.source_connection?.connection_name || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="source_database" label="源库" width="120">
-          <template #default="{ row }">
-            <el-tag size="small">{{ row.source_database }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="source_table" label="源表" width="120">
-          <template #default="{ row }">
-            <el-tag size="small">{{ row.source_table }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="dest_connection.connection_name" label="目标库连接" min-width="130">
-          <template #default="{ row }">
-            {{ row.dest_connection?.connection_name || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="dest_database" label="目标库" width="120">
-          <template #default="{ row }">
-            {{ row.dest_database || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="dest_table" label="目标表" width="120">
-          <template #default="{ row }">
-            {{ row.dest_table || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="is_enabled" label="状态" width="80">
-          <template #default="{ row }">
-            <el-tag :type="row.is_enabled ? 'success' : 'info'" size="small">
-              {{ row.is_enabled ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="160" />
-        <el-table-column label="操作" width="180" fixed="right" align="center">
-          <template #default="{ row }">
-            <div class="action-buttons">
-              <el-button link type="primary" size="small" @click="handleExecute(row)">
-                执行
-              </el-button>
-              <el-button link type="primary" size="small" @click="handleCronManagement(row)">
-                定时
-              </el-button>
-              <el-button link type="primary" size="small" @click="handleEdit(row)">
-                编辑
-              </el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row)">
-                删除
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <el-pagination
-        :current-page="displayPage"
-        :page-size="displayPerPage"
-        :total="displayTotal"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        style="margin-top: 20px; justify-content: flex-end"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
-    </el-card>
 
     <!-- 任务表单对话框 -->
     <el-dialog
@@ -232,7 +236,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
               <div class="action-buttons">
                 <el-button link type="primary" size="small" @click="handleToggleCron(row)">
@@ -610,11 +614,19 @@ function handleSizeChange(size: number) {
 </script>
 
 <style scoped>
+.page-shell {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
 }
 
 .page-title-group {
@@ -627,13 +639,18 @@ function handleSizeChange(size: number) {
   display: flex;
   flex-direction: row;
   justify-content: center;
-  gap: 1px;
+  gap: 0;
   flex-wrap: nowrap;
 }
 
-.action-buttons .el-button {
-  padding: 2px 4px;
+.action-buttons :deep(.el-button.is-link) {
+  padding: 0 2px !important;
+  min-width: auto !important;
   font-size: 12px;
+}
+
+.action-buttons :deep(.el-button + .el-button) {
+  margin-left: 0 !important;
 }
 
 
@@ -649,11 +666,49 @@ function handleSizeChange(size: number) {
 }
 
 .filter-card {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .table-card {
-  margin-bottom: 20px;
+  margin-bottom: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.table-pagination {
+  margin-top: 6px;
+  justify-content: flex-end;
+}
+
+.archive-table {
+  width: 100%;
+}
+
+.table-card :deep(.el-card__body) {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.table-wrap :deep(.el-table) {
+  width: 100%;
+  height: 100%;
+}
+
+.table-wrap :deep(.el-table__inner-wrapper) {
+  height: 100%;
+}
+
+.table-wrap :deep(.el-table__body-wrapper) {
+  overflow-x: hidden !important;
 }
 
 .dialog-footer {

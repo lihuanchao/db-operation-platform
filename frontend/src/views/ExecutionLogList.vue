@@ -47,80 +47,84 @@
       </el-card>
 
       <el-card shadow="never" class="table-card">
-        <el-table :data="store.list" v-loading="store.loading" stripe class="log-table">
-          <el-table-column label="日志类型" width="120">
-            <template #default="{ row }">
-              <el-tag size="small" effect="plain" class="log-type-tag">
-                {{ getLogTypeText(row.log_type) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="task_name" label="任务名称" min-width="240">
-            <template #default="{ row }">
-              <el-button
-                v-if="row.detail_path"
-                link
-                type="primary"
-                class="task-link"
-                :data-detail-path="row.detail_path"
-                @click="navigateToDetail(row.detail_path)"
-              >
-                {{ row.task_name || '-' }}
-              </el-button>
-              <span v-else>{{ row.task_name || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="执行状态" width="120">
-            <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)" size="small">
-                {{ getStatusText(row.status) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="start_time" label="开始时间" width="180" />
-          <el-table-column prop="end_time" label="结束时间" width="180">
-            <template #default="{ row }">
-              {{ row.end_time || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="log_file" label="日志文件" min-width="220">
-            <template #default="{ row }">
-              <span class="mono-text">{{ row.log_file || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="error_message" label="错误信息" min-width="220">
-            <template #default="{ row }">
-              <el-tooltip v-if="row.error_message" :content="row.error_message" placement="top">
-                <span class="error-message">{{ row.error_message }}</span>
-              </el-tooltip>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="160" fixed="right">
-            <template #default="{ row }">
-              <el-button
-                link
-                type="primary"
-                size="small"
-                @click="handleViewLog(row)"
-              >
-                <el-icon><View /></el-icon>
-                查看日志
-              </el-button>
-              <el-button
-                v-if="canDownloadLog(row)"
-                link
-                type="primary"
-                size="small"
-                :data-download-key="`${normalizeLogType(row.log_type)}-${row.id}`"
-                @click="handleDownload(row)"
-              >
-                <el-icon><Download /></el-icon>
-                下载
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="table-wrap">
+          <el-table :data="store.list" v-loading="store.loading" stripe class="log-table" table-layout="fixed" height="100%">
+            <el-table-column label="日志类型" min-width="90">
+              <template #default="{ row }">
+                <el-tag size="small" effect="plain" class="log-type-tag">
+                  {{ getLogTypeText(row.log_type) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="task_name" label="任务名称" min-width="160" show-overflow-tooltip>
+              <template #default="{ row }">
+                <el-button
+                  v-if="row.detail_path"
+                  link
+                  type="primary"
+                  class="task-link"
+                  :data-detail-path="row.detail_path"
+                  @click="navigateToDetail(row.detail_path)"
+                >
+                  {{ row.task_name || '-' }}
+                </el-button>
+                <span v-else>{{ row.task_name || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="执行状态" min-width="90">
+              <template #default="{ row }">
+                <el-tag :type="getStatusType(row.status)" size="small">
+                  {{ getStatusText(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="start_time" label="开始时间" min-width="130" show-overflow-tooltip />
+            <el-table-column prop="end_time" label="结束时间" min-width="130" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.end_time || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="log_file" label="日志文件" min-width="150" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span class="mono-text">{{ row.log_file || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="error_message" label="错误信息" min-width="150" show-overflow-tooltip>
+              <template #default="{ row }">
+                <el-tooltip v-if="row.error_message" :content="row.error_message" placement="top">
+                  <span class="error-message">{{ row.error_message }}</span>
+                </el-tooltip>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" min-width="130" align="center">
+              <template #default="{ row }">
+                <div class="row-actions log-row-actions">
+                  <el-button
+                    link
+                    type="primary"
+                    size="small"
+                    @click="handleViewLog(row)"
+                  >
+                    <el-icon><View /></el-icon>
+                    查看日志
+                  </el-button>
+                  <el-button
+                    v-if="canDownloadLog(row)"
+                    link
+                    type="primary"
+                    size="small"
+                    :data-download-key="`${normalizeLogType(row.log_type)}-${row.id}`"
+                    @click="handleDownload(row)"
+                  >
+                    <el-icon><Download /></el-icon>
+                    下载
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
         <el-pagination
           v-model:current-page="store.page"
@@ -326,9 +330,12 @@ function handleSizeChange(size: number) {
 
 <style scoped>
 .page-shell {
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
+  overflow: hidden;
 }
 
 .page-header {
@@ -354,6 +361,42 @@ function handleSizeChange(size: number) {
   border-radius: 8px;
 }
 
+.filter-card {
+  flex: 0 0 auto;
+}
+
+.table-card {
+  flex: 1;
+  min-height: 0;
+}
+
+.table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.table-card :deep(.el-card__body) {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.table-wrap :deep(.el-table) {
+  width: 100%;
+  height: 100%;
+}
+
+.table-wrap :deep(.el-table__inner-wrapper) {
+  height: 100%;
+}
+
+.table-wrap :deep(.el-table__body-wrapper) {
+  overflow-x: hidden !important;
+}
+
 .filter-form {
   display: flex;
   flex-wrap: wrap;
@@ -370,6 +413,25 @@ function handleSizeChange(size: number) {
 
 .filter-actions :deep(.el-form-item__content) {
   gap: 8px;
+}
+
+.log-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 0;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.log-row-actions :deep(.el-button.is-link) {
+  min-width: auto !important;
+  padding: 0 2px !important;
+}
+
+.log-row-actions :deep(.el-button + .el-button) {
+  margin-left: 0 !important;
 }
 
 .log-table :deep(.el-table__cell) {
@@ -395,7 +457,7 @@ function handleSizeChange(size: number) {
 }
 
 .table-pagination {
-  margin-top: 12px;
+  margin-top: 6px;
   justify-content: flex-end;
 }
 

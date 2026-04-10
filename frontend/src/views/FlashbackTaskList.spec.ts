@@ -100,7 +100,7 @@ describe('FlashbackTaskList', () => {
     )
   })
 
-  it('renders flashback tasks and navigates to create/detail pages', async () => {
+  it('renders flashback tasks and navigates to detail page', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -120,11 +120,9 @@ describe('FlashbackTaskList', () => {
     expect(wrapper.text()).toContain('delete')
     expect(wrapper.text()).toContain('2sql')
 
-    await wrapper.get('button.create-task-btn').trigger('click')
     await wrapper.get('[data-task-id="11"]').trigger('click')
 
-    expect(pushMock).toHaveBeenNthCalledWith(1, '/flashback-tasks/create')
-    expect(pushMock).toHaveBeenNthCalledWith(2, '/flashback-tasks/11')
+    expect(pushMock).toHaveBeenNthCalledWith(1, '/flashback-tasks/11')
   }, 15000)
 
   it('applies filters and requests the list again', async () => {

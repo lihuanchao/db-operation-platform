@@ -17,8 +17,8 @@ class UserAdminService:
         {
             'code': 'user',
             'name': '普通用户',
-            'pages': ['SQL智能建议', '慢SQL管理'],
-            'data_scope': '仅授权连接；SQL智能建议仅自己创建；慢SQL不按创建人限制',
+            'pages': ['SQL优化', 'SQL巡检'],
+            'data_scope': '仅授权连接；SQL优化仅自己创建；慢SQL不按创建人限制',
         },
     ]
     VALID_ROLES = {'admin', 'user'}

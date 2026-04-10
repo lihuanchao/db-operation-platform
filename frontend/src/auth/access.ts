@@ -8,8 +8,9 @@ export interface MenuItem {
 }
 
 export const MENU_ITEMS: MenuItem[] = [
-  { path: '/optimization-tasks', label: 'SQL智能建议', roles: ['admin', 'user'], matchPrefixes: ['/optimization-tasks'] },
-  { path: '/slow-sqls', label: '慢SQL管理', roles: ['admin', 'user'], matchPrefixes: ['/slow-sqls', '/slow-sql/'] },
+  { path: '/optimization-tasks', label: 'SQL优化', roles: ['admin', 'user'], matchPrefixes: ['/optimization-tasks'] },
+  { path: '/sql-audit', label: 'SQL审核', roles: ['admin'], matchPrefixes: ['/sql-audit'] },
+  { path: '/slow-sqls', label: 'SQL巡检', roles: ['admin', 'user'], matchPrefixes: ['/slow-sqls', '/slow-sql/'] },
   { path: '/archive-tasks', label: '归档任务', roles: ['admin'], matchPrefixes: ['/archive-tasks'] },
   { path: '/execution-logs', label: '执行日志', roles: ['admin'], matchPrefixes: ['/execution-logs'] },
   { path: '/flashback-tasks', label: '数据闪回', roles: ['admin'], matchPrefixes: ['/flashback-tasks'] },

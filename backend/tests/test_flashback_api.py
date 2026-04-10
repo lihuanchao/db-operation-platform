@@ -298,6 +298,23 @@ class FlashbackApiTestCase(unittest.TestCase):
         self.assertIsNotNone(persisted_task.finished_at)
         self.assertIn('start failed', persisted_task.error_message)
 
+    def test_run_task_async_does_not_depend_on_importing_app_module(self):
+        task = self._create_task()
+        original_import = __import__
+
+        def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == 'app':
+                raise ModuleNotFoundError("No module named 'app'")
+            return original_import(name, globals, locals, fromlist, level)
+
+        with patch('builtins.__import__', side_effect=guarded_import):
+            with patch('services.flashback_service.threading.Thread.start', return_value=None) as mock_start:
+                started, error = FlashbackService._run_task_async(task.id)
+
+        self.assertTrue(started)
+        self.assertIsNone(error)
+        self.assertEqual(mock_start.call_count, 1)
+
 
 if __name__ == '__main__':
     unittest.main()

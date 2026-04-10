@@ -1,17 +1,19 @@
 <template>
   <AppLayout>
-    <FilterBar
-      :filters="store.filters"
-      @search="handleSearch"
-      @reset="handleReset"
-    />
+    <div class="slow-sql-page">
+      <FilterBar
+        :filters="store.filters"
+        @search="handleSearch"
+        @reset="handleReset"
+      />
 
-    <SQLTable
-      :list="store.list"
-      :loading="store.loading"
-      :pagination="store.pagination"
-      @page-change="handlePageChange"
-    />
+      <SQLTable
+        :list="store.list"
+        :loading="store.loading"
+        :pagination="store.pagination"
+        @page-change="handlePageChange"
+      />
+    </div>
   </AppLayout>
 </template>
 
@@ -43,3 +45,11 @@ function handlePageChange(page: number, perPage: number) {
   store.fetchList()
 }
 </script>
+
+<style scoped>
+.slow-sql-page {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+</style>

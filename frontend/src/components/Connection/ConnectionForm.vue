@@ -1,20 +1,22 @@
 <template>
   <el-form
     ref="formRef"
+    class="connection-form"
     :model="form"
     :rules="rules"
-    label-width="100px"
+    label-width="88px"
+    autocomplete="off"
   >
     <el-form-item label="连接名称" prop="connection_name">
-      <el-input v-model="form.connection_name" placeholder="请输入连接名称" />
+      <el-input v-model="form.connection_name" placeholder="请输入连接名称" autocomplete="off" />
     </el-form-item>
 
     <el-form-item label="主机地址" prop="host">
-      <el-input v-model="form.host" placeholder="请输入主机地址" />
+      <el-input v-model="form.host" placeholder="请输入主机地址" autocomplete="off" />
     </el-form-item>
 
     <el-form-item label="管理IP" prop="manage_host">
-      <el-input v-model="form.manage_host" placeholder="请输入管理IP（可选）" />
+      <el-input v-model="form.manage_host" placeholder="请输入管理IP（可选）" autocomplete="off" />
     </el-form-item>
 
     <el-form-item label="端口" prop="port">
@@ -28,7 +30,7 @@
     </el-form-item>
 
     <el-form-item label="用户名" prop="username">
-      <el-input v-model="form.username" placeholder="请输入用户名" />
+      <el-input v-model="form.username" placeholder="请输入用户名" autocomplete="off" />
     </el-form-item>
 
     <el-form-item label="密码" prop="password">
@@ -36,11 +38,9 @@
         v-model="form.password"
         type="password"
         placeholder="请输入密码"
+        autocomplete="new-password"
         show-password
       />
-      <div v-if="connection" class="password-hint">
-        如不修改密码请留空
-      </div>
     </el-form-item>
 
     <el-form-item label="状态" prop="is_enabled">
@@ -251,9 +251,37 @@ async function handleSave() {
 </script>
 
 <style scoped>
-.password-hint {
+.connection-form :deep(.el-form-item) {
+  margin-bottom: 10px;
+}
+
+.connection-form :deep(.el-form-item__label) {
+  line-height: 1.35;
+  padding-bottom: 4px;
+  color: #2a3d57;
   font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
+  font-weight: 600;
+}
+
+.connection-form :deep(.el-input__wrapper),
+.connection-form :deep(.el-input-number .el-input__wrapper) {
+  min-height: 34px !important;
+  padding: 0 10px;
+}
+
+.connection-form :deep(.el-input__inner),
+.connection-form :deep(.el-input-number__input) {
+  line-height: 1.35;
+  font-size: 13px;
+}
+
+.connection-form :deep(.el-input__inner::placeholder),
+.connection-form :deep(.el-input-number__input::placeholder) {
+  color: #9aa4b2;
+  opacity: 1;
+}
+
+.connection-form :deep(.el-form-item__error) {
+  display: none;
 }
 </style>

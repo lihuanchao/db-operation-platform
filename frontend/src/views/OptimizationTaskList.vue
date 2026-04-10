@@ -57,7 +57,6 @@
                   <el-button link type="primary" class="task-link" @click="goToDetail(row.id)">
                     {{ row.object_preview }}
                   </el-button>
-                  <span class="task-subline">{{ row.database_name }} · {{ row.database_host }}</span>
                 </div>
               </template>
             </el-table-column>
@@ -311,7 +310,7 @@ function statusText(status: OptimizationTaskStatus) {
 .task-object {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
 }
 
 .task-link.el-button {
@@ -319,11 +318,6 @@ function statusText(status: OptimizationTaskStatus) {
   margin: 0;
   padding: 0;
   font-weight: 700;
-}
-
-.task-subline {
-  color: #64748b;
-  font-size: 12px;
 }
 
 .type-pill,

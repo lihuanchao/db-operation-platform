@@ -124,6 +124,32 @@ describe('FlashbackTaskCreate', () => {
     expect(createFlashbackTaskMock).not.toHaveBeenCalled()
   }, 15000)
 
+  it('renders a flat single-layer workspace without card wrapper', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('.flat-panel').exists()).toBe(true)
+    expect(wrapper.find('.flashback-shell').exists()).toBe(false)
+  })
+
+  it('groups base fields by required row pairs', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const baseSection = wrapper.find('.form-section--base')
+    const rows = baseSection.findAll('.el-row')
+    expect(rows.length).toBeGreaterThanOrEqual(3)
+
+    expect(rows[0].text()).toContain('数据库连接')
+    expect(rows[0].text()).toContain('模式')
+
+    expect(rows[1].text()).toContain('SQL 类型')
+    expect(rows[1].text()).toContain('输出类型')
+
+    expect(rows[2].text()).toContain('数据库名')
+    expect(rows[2].text()).toContain('表名')
+  })
+
   it('does not fall back to the first connection when multiple connections exist', async () => {
     getAuthorizedConnectionsMock.mockResolvedValueOnce({
       success: true,
@@ -186,8 +212,11 @@ describe('FlashbackTaskCreate', () => {
 
     await wrapper.get('input[placeholder="数据库名"]').setValue('sales')
     await wrapper.get('input[placeholder="表名"]').setValue('orders')
-    await wrapper.get('input[placeholder="请输入开始时间"]').setValue('2026-04-08 10:00:00')
-    await wrapper.get('input[placeholder="请输入结束时间"]').setValue('2026-04-08 10:05:00')
+    const datePickers = wrapper.findAllComponents({ name: 'ElDatePicker' })
+    expect(datePickers.length).toBe(2)
+    datePickers[0].vm.$emit('update:modelValue', '2026-04-08 10:00:00')
+    datePickers[1].vm.$emit('update:modelValue', '2026-04-08 10:05:00')
+    await flushPromises()
     await wrapper.get('input[placeholder="请输入开始 binlog 文件"]').setValue('mysql-bin.000001')
     await wrapper.get('input[placeholder="请输入结束 binlog 文件"]').setValue('mysql-bin.000002')
 

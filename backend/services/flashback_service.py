@@ -3,6 +3,7 @@ import threading
 from datetime import datetime
 import glob
 import os
+from flask import current_app, has_app_context
 
 from extensions import db
 from models.db_connection import DbConnection
@@ -216,11 +217,16 @@ class FlashbackService:
 
     @classmethod
     def _run_task_async(cls, task_id):
-        from app import app
-
         task = db.session.get(FlashbackTask, task_id)
         if not task:
             return False, '任务不存在'
+
+        if not has_app_context():
+            error_message = '异步任务启动失败: 缺少应用上下文'
+            cls._mark_failed(task, error_message)
+            return False, error_message
+
+        app = current_app._get_current_object()
 
         def _worker():
             with app.app_context():
