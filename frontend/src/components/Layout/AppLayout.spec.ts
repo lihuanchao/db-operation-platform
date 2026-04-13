@@ -115,6 +115,31 @@ describe('AppLayout', () => {
     expect(wrapper.find('.user-role').text()).toBe('普通用户')
   })
 
+  it('renders industrial rectangular tab chrome for task navigation', async () => {
+    const { wrapper, layoutStore } = await mountLayout()
+
+    layoutStore.openTab('/slow-sqls', 'SQL巡检')
+    await flushPromises()
+
+    expect(wrapper.get('.header-tabs').classes()).toContain('header-tabs--blocks')
+    expect(wrapper.get('.header-tabs').classes()).toContain('header-tabs--compact')
+
+    const tabs = wrapper.findAll('.header-tab')
+    expect(tabs.length).toBe(2)
+    expect(tabs[0].classes()).toContain('header-tab--block')
+    expect(tabs[0].classes()).toContain('header-tab--compact')
+    expect(tabs[0].classes()).toContain('header-tab--industrial')
+    expect(tabs[0].classes()).not.toContain('header-tab--indicator-active')
+    expect(tabs[1].classes()).toContain('header-tab--block')
+    expect(tabs[1].classes()).toContain('header-tab--compact')
+    expect(tabs[1].classes()).toContain('header-tab--industrial')
+    expect(tabs[1].classes()).toContain('header-tab--indicator-active')
+
+    const closeButton = wrapper.get('.tab-close')
+    expect(closeButton.classes()).toContain('tab-close--compact')
+    expect(closeButton.classes()).toContain('tab-close--industrial')
+  })
+
   it('toggles layoutStore.collapsed after clicking the collapse control', async () => {
     const { wrapper, layoutStore } = await mountLayout()
 

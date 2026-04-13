@@ -4,8 +4,8 @@
     <aside class="layout-aside" :class="{ 'is-collapsed': layoutStore.collapsed }">
       <!-- Logo和系统名称 -->
       <div class="aside-header">
-        <img :src="sinotrukLogo" alt="中国重汽" class="brand-logo" />
-        <span v-if="!layoutStore.collapsed" class="brand-title">数据库运维平台</span>
+        <img :src="sinotrukLogo" alt="中国重汽" class="brand-logo" data-testid="brand-logo" />
+        <span v-if="!layoutStore.collapsed" class="brand-title" data-testid="brand-title">数据库智维平台</span>
       </div>
 
       <!-- 导航菜单 -->
@@ -15,7 +15,7 @@
 
       <!-- 收起按钮 -->
       <div class="aside-footer">
-        <button class="collapse-btn" @click="layoutStore.toggleCollapsed()">
+        <button class="collapse-btn" data-testid="collapse-toggle" @click="layoutStore.toggleCollapsed()">
           <svg v-if="layoutStore.collapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M13 5l7 7-7 7"/>
             <path d="M6 5l7 7-7 7"/>
@@ -32,19 +32,26 @@
     <div class="layout-main">
       <!-- 顶部导航条 -->
       <header class="main-header">
-        <div class="header-tabs">
+        <div class="header-tabs header-tabs--blocks header-tabs--compact">
           <div
             v-for="tab in layoutStore.tabs"
             :key="tab.path"
-            class="header-tab"
-            :class="{ 'is-active': layoutStore.activePath === tab.path }"
+            class="header-tab header-tab--block header-tab--compact header-tab--industrial"
+            :class="{
+              'is-active': layoutStore.activePath === tab.path,
+              'header-tab--indicator-active': layoutStore.activePath === tab.path
+            }"
+            :data-tab-path="tab.path"
             @click="openTab(tab.path)"
           >
             <span class="tab-title">{{ tab.title }}</span>
             <button
               v-if="tab.closable"
-              class="tab-close"
+              class="tab-close tab-close--compact tab-close--industrial"
+              :data-close-path="tab.path"
               @click.stop="closeTab(tab.path)"
+              @keydown.enter.stop.prevent="closeTab(tab.path)"
+              @keydown.space.stop.prevent="closeTab(tab.path)"
             >
               ×
             </button>
@@ -57,16 +64,18 @@
             {{ userInitial }}
           </div>
           <div class="user-info">
-            <div class="user-name">{{ userName }}</div>
+            <div class="user-name" data-testid="user-name">{{ userName }}</div>
             <div class="user-role">{{ userRole }}</div>
           </div>
-          <button class="logout-btn" @click="handleLogout">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </button>
+          <div class="user-trigger">
+            <button class="logout-btn user-menu-item" @click="handleLogout">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -291,82 +300,131 @@ watch(
 
 /* 顶部导航条 */
 .main-header {
-  height: 56px;
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 0 16px;
+  border-bottom: 1px solid #d7dee7;
+  padding: 0 18px;
   flex-shrink: 0;
 }
 
 .header-tabs {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  padding: 4px 0;
+  padding: 0 0 2px;
+}
+
+.header-tabs--compact {
+  gap: 5px;
 }
 
 .header-tab {
   display: flex;
   align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+  position: relative;
+  box-shadow: none;
+  min-width: 108px;
+  justify-content: center;
+}
+
+.header-tab--compact {
   gap: 6px;
   height: 36px;
-  padding: 0 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
+  min-width: 96px;
+  padding: 0 11px;
+}
+
+.header-tab::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  height: 3px;
+  background: #dc2626;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.header-tab--indicator-active::before {
+  opacity: 1;
 }
 
 .header-tab:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.header-tab.is-active {
-  background: #eff6ff;
-  border-color: #3b82f6;
-  color: #1d4ed8;
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 
 .tab-title {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   color: #475569;
   white-space: nowrap;
 }
 
 .header-tab.is-active .tab-title {
-  color: #1d4ed8;
+  color: #1f2937;
   font-weight: 600;
 }
 
+.header-tab.is-active {
+  background: #e5e7eb;
+  border-color: #9aa7b8;
+  color: #1f2937;
+}
+
 .tab-close {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: #94a3b8;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s ease;
+  border-radius: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.tab-close--compact {
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
 }
 
 .tab-close:hover {
-  background: #e2e8f0;
-  color: #475569;
+  background: #d1d5db;
+  border-color: #94a3b8;
+  color: #334155;
+}
+
+.header-tab.is-active .tab-close {
+  color: #64748b;
+}
+
+.header-tab.is-active .tab-close:hover {
+  background: #cbd5e1;
+  border-color: #94a3b8;
+  color: #334155;
 }
 
 /* 用户信息区 */
@@ -378,6 +436,11 @@ watch(
   margin-left: 16px;
   border-left: 1px solid #e2e8f0;
   flex-shrink: 0;
+}
+
+.user-trigger {
+  display: flex;
+  align-items: center;
 }
 
 .user-avatar {
