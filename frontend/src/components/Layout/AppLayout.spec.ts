@@ -101,6 +101,20 @@ describe('AppLayout', () => {
     expect(wrapper.get('[data-testid="user-name"]').text()).toBe('U2001')
   })
 
+  it('renders the role label from role_code', async () => {
+    const { wrapper, authStore } = await mountLayout()
+
+    expect(wrapper.find('.user-role').text()).toBe('管理员')
+
+    authStore.user = {
+      ...authStore.user!,
+      role_code: 'user'
+    }
+    await flushPromises()
+
+    expect(wrapper.find('.user-role').text()).toBe('普通用户')
+  })
+
   it('toggles layoutStore.collapsed after clicking the collapse control', async () => {
     const { wrapper, layoutStore } = await mountLayout()
 

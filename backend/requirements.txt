@@ -7,3 +7,4 @@ requests==2.31.0
 cryptography==41.0.7
 sqlparse==0.4.4
 APScheduler==3.10.4
+gunicorn==23.0.0

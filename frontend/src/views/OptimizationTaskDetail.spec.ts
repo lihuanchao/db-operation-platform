@@ -50,7 +50,7 @@ function buildTask(overrides: Partial<OptimizationTask> = {}): OptimizationTask 
 }
 
 describe('OptimizationTaskDetail', () => {
-  let rafSpy: ReturnType<typeof vi.spyOn>
+  let rafSpy: { mockRestore: () => void }
 
   function mountView() {
     const pinia = createPinia()

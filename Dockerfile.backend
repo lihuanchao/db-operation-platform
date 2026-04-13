@@ -4,17 +4,30 @@ WORKDIR /app
 
 # 设置时区
 ENV TZ=Asia/Shanghai
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-# 安装系统依赖
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tzdata \
     git \
     curl \
     unzip \
     build-essential \
-    libmysqlclient-dev \
     pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    curl \
+    gnupg2 \
+    lsb-release \
+    ca-certificates \
+    && curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb \
+    && apt-get install -y ./percona-release_latest.generic_all.deb \
+    && percona-release enable pt release \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    percona-toolkit \
+    && rm -f percona-release_latest.generic_all.deb 
 
 # 复制依赖文件
 COPY backend/requirements.txt /app/requirements.txt
@@ -32,13 +45,15 @@ COPY backend /app/backend
 COPY static /app/static
 COPY templates /app/templates
 COPY instance /app/instance
-COPY .env /app/.env
 
 # 创建日志和临时目录
 RUN mkdir -p /app/arch/log \
     && mkdir -p /app/arch/tmp \
+    && mkdir -p /app/flashback/tasks \
     && chmod 755 /app/arch/log \
-    && chmod 755 /app/arch/tmp
+    && chmod 755 /app/arch/tmp \
+    && chmod 755 /app/flashback/tasks \
+    && chmod +x /app/backend/docker-entrypoint.prod.sh
 
 # 设置工作目录
 WORKDIR /app/backend
@@ -49,4 +64,4 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD curl -f http://localhost:5000/api/health || exit 1
 
 # 启动命令
-CMD ["python3", "app.py"]
+ENTRYPOINT ["./docker-entrypoint.prod.sh"]

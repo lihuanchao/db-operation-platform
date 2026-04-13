@@ -37,8 +37,9 @@ from services.slow_sql_query_service import SlowSqlQueryService
 from utils.downloader import Downloader
 
 # 初始化定时任务调度器
-with app.app_context():
-    SchedulerService.initialize()
+if os.environ.get('SKIP_SCHEDULER_INIT', '0') != '1':
+    with app.app_context():
+        SchedulerService.initialize()
 
 
 def success_response(data=None):

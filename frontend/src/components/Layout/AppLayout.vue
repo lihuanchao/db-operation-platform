@@ -110,7 +110,10 @@ const userName = computed(() => {
 })
 
 const userRole = computed(() => {
-  return authStore.user?.role_name || '用户'
+  if (!authStore.user) {
+    return '用户'
+  }
+  return authStore.user.role_code === 'admin' ? '管理员' : '普通用户'
 })
 
 const userInitial = computed(() => {

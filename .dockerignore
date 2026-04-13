@@ -1,0 +1,48 @@
+# 后端相关
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/data/
+backend/instance/
+backend/my2sql
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/.env.local
+.env
+.env.*
+
+# 前端相关
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.vue/
+
+# Git 和 IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# CI/CD 和文档
+.github/
+.gitlab-ci.yml
+*.md
+!README.md
+CLAUDE.md
+TODOS.md
+
+# 临时文件
+*.tmp
+*.log
+*.cache
+.DS_Store
+
+# 虚拟环境
+venv/
+env/
+ENV/
