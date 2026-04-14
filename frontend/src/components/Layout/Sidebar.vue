@@ -61,6 +61,21 @@
       </el-menu-item>
 
       <el-menu-item
+        v-if="hasMenu('/sql-throttle/rules')"
+        index="/sql-throttle/rules"
+        data-path="/sql-throttle/rules"
+        @click="navigate('/sql-throttle/rules')"
+      >
+        <el-icon class="menu-icon-svg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 5h16M4 12h16M4 19h10"/>
+            <circle cx="18" cy="19" r="2"/>
+          </svg>
+        </el-icon>
+        <span class="menu-label">SQL限流</span>
+      </el-menu-item>
+
+      <el-menu-item
         v-if="hasMenu('/archive-tasks')"
         index="/archive-tasks"
         data-path="/archive-tasks"
@@ -200,6 +215,7 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/sql-audit')) return '/sql-audit'
   if (route.path.startsWith('/slow-sql')) return '/slow-sqls'
   if (route.path.startsWith('/archive-tasks')) return '/archive-tasks'
+  if (route.path.startsWith('/sql-throttle')) return '/sql-throttle/rules'
   if (route.path.startsWith('/flashback-tasks')) return '/flashback-tasks'
   if (route.path.startsWith('/users')) return '/users'
   if (route.path.startsWith('/roles')) return '/roles'

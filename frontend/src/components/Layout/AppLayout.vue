@@ -36,7 +36,7 @@
           <div
             v-for="tab in layoutStore.tabs"
             :key="tab.path"
-            class="header-tab header-tab--block header-tab--compact header-tab--industrial"
+            class="header-tab header-tab--block header-tab--compact header-tab--muted-surface header-tab--industrial"
             :class="{
               'is-active': layoutStore.activePath === tab.path,
               'header-tab--indicator-active': layoutStore.activePath === tab.path
@@ -342,6 +342,10 @@ watch(
   justify-content: center;
 }
 
+.header-tab--muted-surface {
+  background: #f3f4f6;
+}
+
 .header-tab--compact {
   gap: 6px;
   height: 36px;
@@ -366,7 +370,7 @@ watch(
 }
 
 .header-tab:hover {
-  background: #f8fafc;
+  background: #e8ecf1;
   border-color: #94a3b8;
 }
 
@@ -384,7 +388,7 @@ watch(
 }
 
 .header-tab.is-active {
-  background: #e5e7eb;
+  background: #ffffff;
   border-color: #9aa7b8;
   color: #1f2937;
 }

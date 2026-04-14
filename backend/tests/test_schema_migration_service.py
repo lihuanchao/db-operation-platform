@@ -39,6 +39,16 @@ class SchemaMigrationServiceTestCase(unittest.TestCase):
         self.assertIn('connection_id', optimization_columns)
         self.assertIn('database_name', optimization_columns)
 
+    def test_ensure_sql_throttle_schema_creates_tables(self):
+        SchemaMigrationService.ensure_sql_throttle_schema()
+
+        inspector = inspect(db.engine)
+        table_names = set(inspector.get_table_names())
+        self.assertIn('sql_throttle_rule', table_names)
+        self.assertIn('sql_throttle_run', table_names)
+        self.assertIn('sql_throttle_kill_log', table_names)
+        self.assertIn('sql_throttle_fingerprint_state', table_names)
+
 
 if __name__ == '__main__':
     unittest.main()

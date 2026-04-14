@@ -13,6 +13,10 @@ from .flashback_task import FlashbackTask
 from .sys_user import SysUser
 from .user_connection_permission import UserConnectionPermission
 from .login_log import LoginLog
+from .sql_throttle_rule import SqlThrottleRule
+from .sql_throttle_run import SqlThrottleRun
+from .sql_throttle_kill_log import SqlThrottleKillLog
+from .sql_throttle_fingerprint_state import SqlThrottleFingerprintState
 
 __all__ = [
     'MonitorMysqlSlowQueryReview',
@@ -27,5 +31,9 @@ __all__ = [
     'FlashbackTask',
     'SysUser',
     'UserConnectionPermission',
-    'LoginLog'
+    'LoginLog',
+    'SqlThrottleRule',
+    'SqlThrottleRun',
+    'SqlThrottleKillLog',
+    'SqlThrottleFingerprintState'
 ]

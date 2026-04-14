@@ -2,6 +2,9 @@ from datetime import datetime
 
 from models import ExecutionLog, ArchiveTask
 from models.flashback_task import FlashbackTask
+from models.sql_throttle_kill_log import SqlThrottleKillLog
+from models.sql_throttle_rule import SqlThrottleRule
+from models.sql_throttle_run import SqlThrottleRun
 from extensions import db
 from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
@@ -15,7 +18,7 @@ class ExecutionLogService:
     @staticmethod
     def normalize_log_type(log_type):
         value = (log_type or '').strip().lower()
-        if value in ('flashback', 'archive', 'all', 'merged'):
+        if value in ('flashback', 'archive', 'all', 'merged', 'sql_throttle_run', 'sql_kill'):
             return value
         return 'archive'
 
@@ -81,6 +84,59 @@ class ExecutionLogService:
         }
 
     @staticmethod
+    def _status_from_run_status(status):
+        normalized = (status or '').strip().lower()
+        if normalized == 'completed':
+            return 1
+        if normalized in ('running', 'queued'):
+            return 2
+        return 0
+
+    @classmethod
+    def _serialize_sql_throttle_run_log(cls, run):
+        return {
+            'id': run.id,
+            'task_id': run.rule_id,
+            'task_name': run.rule.rule_name if run.rule else f'规则#{run.rule_id}',
+            'cron_job_id': None,
+            'start_time': run.sample_started_at.strftime('%Y-%m-%d %H:%M:%S') if run.sample_started_at else None,
+            'end_time': run.sample_finished_at.strftime('%Y-%m-%d %H:%M:%S') if run.sample_finished_at else None,
+            'status': cls._status_from_run_status(run.status),
+            'log_file': None,
+            'error_message': run.error_message,
+            'created_at': run.created_at.strftime('%Y-%m-%d %H:%M:%S') if run.created_at else None,
+            'log_type': 'sql_throttle_run',
+            'detail_path': f'/sql-throttle/runs/{run.id}',
+            'run_status': run.status,
+            'kill_attempt_count': run.kill_attempt_count,
+            'kill_success_count': run.kill_success_count,
+            'dry_run': bool(run.dry_run),
+        }
+
+    @classmethod
+    def _serialize_sql_kill_log(cls, kill_log):
+        is_success = kill_log.kill_result in ('success', 'dry_run')
+        return {
+            'id': kill_log.id,
+            'task_id': kill_log.rule_id,
+            'task_name': kill_log.rule.rule_name if kill_log.rule else f'规则#{kill_log.rule_id}',
+            'cron_job_id': None,
+            'start_time': kill_log.killed_at.strftime('%Y-%m-%d %H:%M:%S') if kill_log.killed_at else None,
+            'end_time': kill_log.killed_at.strftime('%Y-%m-%d %H:%M:%S') if kill_log.killed_at else None,
+            'status': 1 if is_success else 0,
+            'log_file': None,
+            'error_message': kill_log.kill_error_message,
+            'created_at': kill_log.created_at.strftime('%Y-%m-%d %H:%M:%S') if kill_log.created_at else None,
+            'log_type': 'sql_kill',
+            'detail_path': f'/sql-throttle/runs/{kill_log.run_id}',
+            'run_id': kill_log.run_id,
+            'thread_id': kill_log.thread_id,
+            'db_name': kill_log.db_name,
+            'fingerprint': kill_log.fingerprint,
+            'kill_result': kill_log.kill_result,
+        }
+
+    @staticmethod
     def _flashback_task_name_filter(task_name):
         pattern = f'%{task_name}%'
         full_task_name = FlashbackTask.database_name + '.' + FlashbackTask.table_name
@@ -89,6 +145,16 @@ class ExecutionLogService:
             FlashbackTask.table_name.like(pattern),
             full_task_name.like(pattern),
         )
+
+    @staticmethod
+    def _sql_throttle_rule_name_filter(task_name):
+        pattern = f'%{task_name}%'
+        return SqlThrottleRule.rule_name.like(pattern)
+
+    @staticmethod
+    def _sql_kill_name_filter(task_name):
+        pattern = f'%{task_name}%'
+        return SqlThrottleRule.rule_name.like(pattern)
 
     @staticmethod
     def _apply_sort_meta(item, sort_time, sort_id, log_type_rank):
@@ -168,6 +234,62 @@ class ExecutionLogService:
                 'per_page': per_page,
             }
 
+        if normalized_log_type == 'sql_throttle_run':
+            query = SqlThrottleRun.query.options(joinedload(SqlThrottleRun.rule)).join(
+                SqlThrottleRule, SqlThrottleRule.id == SqlThrottleRun.rule_id
+            )
+            if task_id:
+                query = query.filter(SqlThrottleRun.rule_id == task_id)
+            if task_name:
+                query = query.filter(cls._sql_throttle_rule_name_filter(task_name))
+            if status_filter is not None:
+                if status_filter == 1:
+                    query = query.filter(SqlThrottleRun.status == 'completed')
+                elif status_filter == 2:
+                    query = query.filter(SqlThrottleRun.status.in_(['queued', 'running']))
+                else:
+                    query = query.filter(SqlThrottleRun.status.in_(['failed', 'skipped']))
+
+            total = query.count()
+            rows = query.order_by(
+                func.coalesce(SqlThrottleRun.sample_started_at, SqlThrottleRun.created_at).desc(),
+                SqlThrottleRun.id.desc(),
+            ).paginate(page=page, per_page=per_page, error_out=False)
+            return {
+                'items': [cls._serialize_sql_throttle_run_log(item) for item in rows.items],
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+            }
+
+        if normalized_log_type == 'sql_kill':
+            query = SqlThrottleKillLog.query.options(joinedload(SqlThrottleKillLog.rule)).join(
+                SqlThrottleRule, SqlThrottleRule.id == SqlThrottleKillLog.rule_id
+            )
+            if task_id:
+                query = query.filter(SqlThrottleKillLog.rule_id == task_id)
+            if task_name:
+                query = query.filter(cls._sql_kill_name_filter(task_name))
+            if status_filter is not None:
+                if status_filter == 1:
+                    query = query.filter(SqlThrottleKillLog.kill_result.in_(['success', 'dry_run']))
+                elif status_filter == 2:
+                    query = query.filter(SqlThrottleKillLog.kill_result == 'already_finished')
+                else:
+                    query = query.filter(SqlThrottleKillLog.kill_result.notin_(['success', 'dry_run']))
+
+            total = query.count()
+            rows = query.order_by(
+                func.coalesce(SqlThrottleKillLog.killed_at, SqlThrottleKillLog.created_at).desc(),
+                SqlThrottleKillLog.id.desc(),
+            ).paginate(page=page, per_page=per_page, error_out=False)
+            return {
+                'items': [cls._serialize_sql_kill_log(item) for item in rows.items],
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+            }
+
         archive_query = ExecutionLog.query.options(joinedload(ExecutionLog.task)).join(
             ArchiveTask, ArchiveTask.id == ExecutionLog.task_id
         )
@@ -192,7 +314,37 @@ class ExecutionLogService:
                 matched_statuses = ['failed']
             flashback_query = flashback_query.filter(FlashbackTask.status.in_(matched_statuses))
 
-        total = archive_query.count() + flashback_query.count()
+        sql_throttle_run_query = SqlThrottleRun.query.options(joinedload(SqlThrottleRun.rule)).join(
+            SqlThrottleRule, SqlThrottleRule.id == SqlThrottleRun.rule_id
+        )
+        if task_id:
+            sql_throttle_run_query = sql_throttle_run_query.filter(SqlThrottleRun.rule_id == task_id)
+        if task_name:
+            sql_throttle_run_query = sql_throttle_run_query.filter(cls._sql_throttle_rule_name_filter(task_name))
+        if status_filter is not None:
+            if status_filter == 1:
+                sql_throttle_run_query = sql_throttle_run_query.filter(SqlThrottleRun.status == 'completed')
+            elif status_filter == 2:
+                sql_throttle_run_query = sql_throttle_run_query.filter(SqlThrottleRun.status.in_(['queued', 'running']))
+            else:
+                sql_throttle_run_query = sql_throttle_run_query.filter(SqlThrottleRun.status.in_(['failed', 'skipped']))
+
+        sql_kill_query = SqlThrottleKillLog.query.options(joinedload(SqlThrottleKillLog.rule)).join(
+            SqlThrottleRule, SqlThrottleRule.id == SqlThrottleKillLog.rule_id
+        )
+        if task_id:
+            sql_kill_query = sql_kill_query.filter(SqlThrottleKillLog.rule_id == task_id)
+        if task_name:
+            sql_kill_query = sql_kill_query.filter(cls._sql_kill_name_filter(task_name))
+        if status_filter is not None:
+            if status_filter == 1:
+                sql_kill_query = sql_kill_query.filter(SqlThrottleKillLog.kill_result.in_(['success', 'dry_run']))
+            elif status_filter == 2:
+                sql_kill_query = sql_kill_query.filter(SqlThrottleKillLog.kill_result == 'already_finished')
+            else:
+                sql_kill_query = sql_kill_query.filter(SqlThrottleKillLog.kill_result.notin_(['success', 'dry_run']))
+
+        total = archive_query.count() + flashback_query.count() + sql_throttle_run_query.count() + sql_kill_query.count()
         limit_count = page * per_page
         archive_logs = archive_query.order_by(
             func.coalesce(ExecutionLog.start_time, ExecutionLog.created_at).desc(),
@@ -201,6 +353,14 @@ class ExecutionLogService:
         flashback_tasks = flashback_query.order_by(
             func.coalesce(FlashbackTask.started_at, FlashbackTask.created_at).desc(),
             FlashbackTask.id.desc(),
+        ).limit(limit_count).all()
+        sql_throttle_runs = sql_throttle_run_query.order_by(
+            func.coalesce(SqlThrottleRun.sample_started_at, SqlThrottleRun.created_at).desc(),
+            SqlThrottleRun.id.desc(),
+        ).limit(limit_count).all()
+        sql_kill_logs = sql_kill_query.order_by(
+            func.coalesce(SqlThrottleKillLog.killed_at, SqlThrottleKillLog.created_at).desc(),
+            SqlThrottleKillLog.id.desc(),
         ).limit(limit_count).all()
 
         merged_items = []
@@ -217,6 +377,20 @@ class ExecutionLogService:
                 cls._flashback_sort_time(task),
                 task.id or 0,
                 1,
+            ))
+        for run in sql_throttle_runs:
+            merged_items.append(cls._apply_sort_meta(
+                cls._serialize_sql_throttle_run_log(run),
+                run.sample_started_at or run.created_at or datetime.min,
+                run.id or 0,
+                2,
+            ))
+        for kill_log in sql_kill_logs:
+            merged_items.append(cls._apply_sort_meta(
+                cls._serialize_sql_kill_log(kill_log),
+                kill_log.killed_at or kill_log.created_at or datetime.min,
+                kill_log.id or 0,
+                3,
             ))
 
         merged_items.sort(
@@ -248,6 +422,46 @@ class ExecutionLogService:
         if not log:
             return None
         return log.to_dict()
+
+    @staticmethod
+    def get_sql_throttle_run_log_content(log_id):
+        run = db.session.get(SqlThrottleRun, log_id)
+        if not run:
+            return None
+        lines = [
+            f'run_id: {run.id}',
+            f'rule_id: {run.rule_id}',
+            f'rule_name: {run.rule.rule_name if run.rule else ""}',
+            f'status: {run.status}',
+            f'dry_run: {bool(run.dry_run)}',
+            f'total_session_count: {run.total_session_count}',
+            f'candidate_fingerprint_count: {run.candidate_fingerprint_count}',
+            f'hit_fingerprint_count: {run.hit_fingerprint_count}',
+            f'kill_attempt_count: {run.kill_attempt_count}',
+            f'kill_success_count: {run.kill_success_count}',
+            f'error_message: {run.error_message or ""}',
+        ]
+        return '\n'.join(lines)
+
+    @staticmethod
+    def get_sql_kill_log_content(log_id):
+        kill_log = db.session.get(SqlThrottleKillLog, log_id)
+        if not kill_log:
+            return None
+        lines = [
+            f'kill_log_id: {kill_log.id}',
+            f'run_id: {kill_log.run_id}',
+            f'rule_id: {kill_log.rule_id}',
+            f'rule_name: {kill_log.rule.rule_name if kill_log.rule else ""}',
+            f'thread_id: {kill_log.thread_id}',
+            f'db_user: {kill_log.db_user or ""}',
+            f'db_host: {kill_log.db_host or ""}',
+            f'db_name: {kill_log.db_name or ""}',
+            f'kill_command: {kill_log.kill_command}',
+            f'kill_result: {kill_log.kill_result}',
+            f'kill_error_message: {kill_log.kill_error_message or ""}',
+        ]
+        return '\n'.join(lines)
 
     @staticmethod
     def create_log(data):

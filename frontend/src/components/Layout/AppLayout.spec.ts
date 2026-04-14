@@ -128,10 +128,12 @@ describe('AppLayout', () => {
     expect(tabs.length).toBe(2)
     expect(tabs[0].classes()).toContain('header-tab--block')
     expect(tabs[0].classes()).toContain('header-tab--compact')
+    expect(tabs[0].classes()).toContain('header-tab--muted-surface')
     expect(tabs[0].classes()).toContain('header-tab--industrial')
     expect(tabs[0].classes()).not.toContain('header-tab--indicator-active')
     expect(tabs[1].classes()).toContain('header-tab--block')
     expect(tabs[1].classes()).toContain('header-tab--compact')
+    expect(tabs[1].classes()).toContain('header-tab--muted-surface')
     expect(tabs[1].classes()).toContain('header-tab--industrial')
     expect(tabs[1].classes()).toContain('header-tab--indicator-active')
 

@@ -21,6 +21,9 @@ db.init_app(app)
 from models.slow_sql import MonitorMysqlSlowQueryOptimized
 from models.db_connection import DbConnection
 from models import ArchiveTask, CronJob, ExecutionLog
+from models.sql_throttle_rule import SqlThrottleRule
+from models.sql_throttle_run import SqlThrottleRun
+from models.sql_throttle_kill_log import SqlThrottleKillLog
 from services.llm_service import LLMService
 from services.sql_metadata_service import SQLMetadataService
 from services.archive_service import ArchiveService
@@ -30,6 +33,8 @@ from services.flashback_service import FlashbackService
 from services.optimization_task_service import OptimizationTaskService
 from services.pt_archiver import PTArchiver
 from services.scheduler_service import SchedulerService
+from services.sql_throttle_rule_service import SqlThrottleRuleService
+from services.sql_throttle_scheduler_service import SqlThrottleSchedulerService
 from services.auth_service import AuthService
 from services.access_control_service import AccessControlService, login_required, admin_required
 from services.user_admin_service import UserAdminService
@@ -40,6 +45,7 @@ from utils.downloader import Downloader
 if os.environ.get('SKIP_SCHEDULER_INIT', '0') != '1':
     with app.app_context():
         SchedulerService.initialize()
+        SqlThrottleSchedulerService.initialize()
 
 
 def success_response(data=None):
@@ -61,6 +67,17 @@ def get_request_ip():
     if forwarded_for:
         return forwarded_for.split(',')[0].strip()
     return request.remote_addr
+
+
+def parse_bool_param(value):
+    if isinstance(value, bool):
+        return value
+    raw = (value or '').strip().lower()
+    if raw in ('1', 'true', 'yes', 'y', 'on'):
+        return True
+    if raw in ('0', 'false', 'no', 'n', 'off'):
+        return False
+    return None
 
 
 def calculate_slow_sql_time_range(time_range, ts_min, ts_max):
@@ -1008,6 +1025,160 @@ def toggle_cron_job(current_user, id):
         return error_response(f'操作失败: {str(e)}', 500)
 
 
+# ==================== SQL 限流 API ====================
+
+@app.route('/api/sql-throttle-rules', methods=['GET'])
+@admin_required
+def get_sql_throttle_rules(current_user):
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    rule_name = request.args.get('rule_name', '')
+    enabled = parse_bool_param(request.args.get('enabled'))
+    db_connection_id = request.args.get('db_connection_id', None, type=int)
+    data = SqlThrottleRuleService.list_rules(
+        page=page,
+        per_page=per_page,
+        rule_name=rule_name,
+        enabled=enabled,
+        db_connection_id=db_connection_id,
+    )
+    return success_response(data)
+
+
+@app.route('/api/sql-throttle-rules', methods=['POST'])
+@admin_required
+def create_sql_throttle_rule(current_user):
+    payload = request.get_json(silent=True) or {}
+    item, error = SqlThrottleRuleService.create_rule(payload, current_user)
+    if error:
+        return error_response(error, 400)
+    return success_response(item)
+
+
+@app.route('/api/sql-throttle-rules/<int:id>', methods=['GET'])
+@admin_required
+def get_sql_throttle_rule(current_user, id):
+    item = SqlThrottleRuleService.get_rule_detail(id)
+    if not item:
+        return error_response('规则不存在', 404)
+    return success_response(item)
+
+
+@app.route('/api/sql-throttle-rules/<int:id>', methods=['PUT'])
+@admin_required
+def update_sql_throttle_rule(current_user, id):
+    payload = request.get_json(silent=True) or {}
+    item, error = SqlThrottleRuleService.update_rule(id, payload)
+    if error:
+        return error_response(error, 400)
+    return success_response(item)
+
+
+@app.route('/api/sql-throttle-rules/<int:id>', methods=['DELETE'])
+@admin_required
+def delete_sql_throttle_rule(current_user, id):
+    item, error = SqlThrottleRuleService.delete_rule(id)
+    if error:
+        return error_response(error, 400)
+    return success_response(item)
+
+
+@app.route('/api/sql-throttle-rules/<int:id>/enable', methods=['POST'])
+@admin_required
+def enable_sql_throttle_rule(current_user, id):
+    item, error = SqlThrottleRuleService.enable_rule(id)
+    if error:
+        return error_response(error, 400)
+    return success_response(item)
+
+
+@app.route('/api/sql-throttle-rules/<int:id>/disable', methods=['POST'])
+@admin_required
+def disable_sql_throttle_rule(current_user, id):
+    item, error = SqlThrottleRuleService.disable_rule(id)
+    if error:
+        return error_response(error, 400)
+    return success_response(item)
+
+
+@app.route('/api/sql-throttle-rules/<int:id>/run-once', methods=['POST'])
+@admin_required
+def run_once_sql_throttle_rule(current_user, id):
+    item, error = SqlThrottleRuleService.run_once(id)
+    if error:
+        return error_response(error, 400)
+    return success_response(item)
+
+
+@app.route('/api/sql-throttle-runs', methods=['GET'])
+@admin_required
+def get_sql_throttle_runs(current_user):
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    rule_id = request.args.get('rule_id', None, type=int)
+    rule_name = (request.args.get('rule_name') or '').strip()
+    status = (request.args.get('status') or '').strip()
+    is_hit = parse_bool_param(request.args.get('is_hit'))
+
+    query = SqlThrottleRun.query
+    if rule_id:
+        query = query.filter(SqlThrottleRun.rule_id == rule_id)
+    if rule_name:
+        query = query.join(SqlThrottleRule, SqlThrottleRule.id == SqlThrottleRun.rule_id).filter(
+            SqlThrottleRule.rule_name.like(f'%{rule_name}%')
+        )
+    if status:
+        query = query.filter(SqlThrottleRun.status == status)
+    if is_hit is True:
+        query = query.filter(SqlThrottleRun.hit_fingerprint_count > 0)
+    elif is_hit is False:
+        query = query.filter(SqlThrottleRun.hit_fingerprint_count == 0)
+
+    total = query.count()
+    rows = query.order_by(
+        db.func.coalesce(SqlThrottleRun.sample_started_at, SqlThrottleRun.created_at).desc(),
+        SqlThrottleRun.id.desc(),
+    ).paginate(page=page, per_page=per_page, error_out=False)
+
+    return success_response({
+        'items': [row.to_dict() for row in rows.items],
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+    })
+
+
+@app.route('/api/sql-throttle-runs/<int:id>', methods=['GET'])
+@admin_required
+def get_sql_throttle_run(current_user, id):
+    row = db.session.get(SqlThrottleRun, id)
+    if not row:
+        return error_response('运行记录不存在', 404)
+    return success_response(row.to_dict())
+
+
+@app.route('/api/sql-throttle-runs/<int:id>/kill-logs', methods=['GET'])
+@admin_required
+def get_sql_throttle_run_kill_logs(current_user, id):
+    row = db.session.get(SqlThrottleRun, id)
+    if not row:
+        return error_response('运行记录不存在', 404)
+
+    items = SqlThrottleKillLog.query.filter(
+        SqlThrottleKillLog.run_id == id
+    ).order_by(SqlThrottleKillLog.id.desc()).all()
+    return success_response({'items': [item.to_dict() for item in items]})
+
+
+@app.route('/api/sql-throttle-runs/<int:id>/snapshot', methods=['GET'])
+@admin_required
+def get_sql_throttle_run_snapshot(current_user, id):
+    row = db.session.get(SqlThrottleRun, id)
+    if not row:
+        return error_response('运行记录不存在', 404)
+    return success_response({'snapshot': row.snapshot()})
+
+
 # ==================== 执行日志 API ====================
 
 def _send_file_download(file_path, mimetype='text/plain'):
@@ -1017,6 +1188,21 @@ def _send_file_download(file_path, mimetype='text/plain'):
         mimetype=mimetype,
         as_attachment=True,
         download_name=filename
+    )
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
+def _send_text_download(content, filename):
+    buffer = io.BytesIO((content or '').encode('utf-8'))
+    buffer.seek(0)
+    response = send_file(
+        buffer,
+        mimetype='text/plain; charset=utf-8',
+        as_attachment=True,
+        download_name=filename,
     )
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
@@ -1118,6 +1304,18 @@ def download_typed_execution_log(current_user, log_type, id):
     if log_type == 'archive':
         return download_execution_log(current_user, id)
 
+    if log_type == 'sql_throttle_run':
+        content = ExecutionLogService.get_sql_throttle_run_log_content(id)
+        if content is None:
+            return error_response('日志不存在', 404)
+        return _send_text_download(content, f'sql_throttle_run_{id}.log')
+
+    if log_type == 'sql_kill':
+        content = ExecutionLogService.get_sql_kill_log_content(id)
+        if content is None:
+            return error_response('日志不存在', 404)
+        return _send_text_download(content, f'sql_kill_{id}.log')
+
     return error_response('日志类型不存在', 404)
 
 
@@ -1146,6 +1344,18 @@ def get_typed_log_content(current_user, log_type, id):
         if error:
             return error_response(error, status_code)
         return success_response(data)
+
+    if log_type == 'sql_throttle_run':
+        content = ExecutionLogService.get_sql_throttle_run_log_content(id)
+        if content is None:
+            return error_response('日志不存在', 404)
+        return success_response({'content': content, 'has_file': True})
+
+    if log_type == 'sql_kill':
+        content = ExecutionLogService.get_sql_kill_log_content(id)
+        if content is None:
+            return error_response('日志不存在', 404)
+        return success_response({'content': content, 'has_file': True})
 
     return error_response('日志类型不存在', 404)
 

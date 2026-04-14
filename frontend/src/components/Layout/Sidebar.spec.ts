@@ -166,6 +166,22 @@ describe('Sidebar', () => {
     expect(wrapper.getComponent(ElMenuStub).props('collapse')).toBe(true)
   })
 
+  it('places sql throttle menu directly below slow sql menu', () => {
+    const { wrapper } = mountSidebar([
+      '/slow-sqls',
+      '/sql-throttle/rules',
+      '/archive-tasks'
+    ])
+
+    const buttons = wrapper.findAll('button[data-path]')
+    const paths = buttons.map((button) => button.attributes('data-path'))
+    const slowIndex = paths.indexOf('/slow-sqls')
+    const throttleIndex = paths.indexOf('/sql-throttle/rules')
+
+    expect(slowIndex).toBeGreaterThanOrEqual(0)
+    expect(throttleIndex).toBe(slowIndex + 1)
+  })
+
   it('navigates to the clicked menu item path for top-level and nested entries', async () => {
     const { wrapper } = mountSidebar([
       '/optimization-tasks',

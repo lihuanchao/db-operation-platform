@@ -288,8 +288,8 @@ export interface CronJobListResponse {
   per_page: number
 }
 
-export type ExecutionLogFilterType = 'archive' | 'flashback' | 'all' | 'merged'
-export type ExecutionLogRouteType = 'archive' | 'flashback'
+export type ExecutionLogFilterType = 'archive' | 'flashback' | 'sql_throttle_run' | 'sql_kill' | 'all' | 'merged'
+export type ExecutionLogRouteType = 'archive' | 'flashback' | 'sql_throttle_run' | 'sql_kill'
 
 export interface ExecutionLog {
   id: number
@@ -304,6 +304,15 @@ export interface ExecutionLog {
   log_file?: string | null
   error_message?: string | null
   created_at?: string | null
+  run_id?: number
+  thread_id?: number
+  db_name?: string | null
+  fingerprint?: string | null
+  kill_result?: string | null
+  run_status?: string | null
+  kill_attempt_count?: number
+  kill_success_count?: number
+  dry_run?: boolean
   _selected?: boolean
 }
 
@@ -312,4 +321,88 @@ export interface ExecutionLogListResponse {
   total: number
   page: number
   per_page: number
+}
+
+export interface SqlThrottleRule {
+  id: number
+  rule_name: string
+  db_connection_id: number
+  connection_name?: string | null
+  mysql_version?: string | null
+  enabled: boolean
+  slow_sql_seconds: number
+  fingerprint_concurrency_threshold: number
+  poll_interval_seconds: number
+  max_kill_per_round: number
+  min_rows_examined?: number | null
+  target_db_pattern?: string | null
+  target_user_pattern?: string | null
+  exclude_users: string[]
+  exclude_hosts: string[]
+  exclude_dbs: string[]
+  exclude_fingerprints: string[]
+  dry_run: boolean
+  kill_command: string
+  kill_scope: string
+  kill_order: string
+  consecutive_hit_times: number
+  status: string
+  last_run_at?: string | null
+  last_hit_at?: string | null
+  last_error_message?: string | null
+  creator_user_id?: number | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface SqlThrottleRuleListResponse {
+  items: SqlThrottleRule[]
+  total: number
+  page: number
+  per_page: number
+}
+
+export interface SqlThrottleRun {
+  id: number
+  rule_id: number
+  rule_name?: string | null
+  status: string
+  sample_started_at?: string | null
+  sample_finished_at?: string | null
+  total_session_count: number
+  candidate_fingerprint_count: number
+  hit_fingerprint_count: number
+  kill_attempt_count: number
+  kill_success_count: number
+  dry_run: boolean
+  error_message?: string | null
+  snapshot_json?: Record<string, unknown>
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface SqlThrottleRunListResponse {
+  items: SqlThrottleRun[]
+  total: number
+  page: number
+  per_page: number
+}
+
+export interface SqlThrottleKillLog {
+  id: number
+  run_id: number
+  rule_id: number
+  rule_name?: string | null
+  thread_id: number
+  db_user?: string | null
+  db_host?: string | null
+  db_name?: string | null
+  fingerprint?: string | null
+  sample_sql_text?: string | null
+  exec_time_seconds: number
+  kill_command: string
+  kill_result: string
+  kill_error_message?: string | null
+  killed_at?: string | null
+  created_at?: string | null
 }

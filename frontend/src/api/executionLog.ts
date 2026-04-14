@@ -43,7 +43,7 @@ export function downloadExecutionLog(
     })
   }
 
-  if (logTypeOrId !== 'archive' && logTypeOrId !== 'flashback') {
+  if (logTypeOrId !== 'archive' && logTypeOrId !== 'flashback' && logTypeOrId !== 'sql_throttle_run' && logTypeOrId !== 'sql_kill') {
     return Promise.reject(new Error('日志类型不存在'))
   }
 
@@ -71,7 +71,7 @@ export function getLogContent(logTypeOrId: ExecutionLogRouteType | number, id?: 
     )
   }
 
-  if (logTypeOrId !== 'archive' && logTypeOrId !== 'flashback') {
+  if (logTypeOrId !== 'archive' && logTypeOrId !== 'flashback' && logTypeOrId !== 'sql_throttle_run' && logTypeOrId !== 'sql_kill') {
     return Promise.reject(new Error('日志类型不存在'))
   }
 

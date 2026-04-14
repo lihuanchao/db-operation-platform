@@ -66,6 +66,21 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/ArchiveTaskWithCron.vue')
   },
   {
+    path: '/sql-throttle/rules',
+    name: 'SqlThrottleRuleList',
+    component: () => import('@/views/SqlThrottleRuleList.vue')
+  },
+  {
+    path: '/sql-throttle/runs',
+    name: 'SqlThrottleRunList',
+    component: () => import('@/views/SqlThrottleRunList.vue')
+  },
+  {
+    path: '/sql-throttle/runs/:id',
+    name: 'SqlThrottleRunDetail',
+    component: () => import('@/views/SqlThrottleRunDetail.vue')
+  },
+  {
     path: '/execution-logs',
     name: 'ExecutionLogList',
     component: () => import('@/views/ExecutionLogList.vue')

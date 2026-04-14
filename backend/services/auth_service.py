@@ -14,6 +14,7 @@ class AuthService:
         {'path': '/sql-audit', 'label': 'SQL审核'},
         {'path': '/slow-sqls', 'label': 'SQL巡检'},
         {'path': '/archive-tasks', 'label': '归档任务'},
+        {'path': '/sql-throttle/rules', 'label': 'SQL限流'},
         {'path': '/execution-logs', 'label': '执行日志'},
         {'path': '/flashback-tasks', 'label': '数据闪回'},
         {'path': '/users', 'label': '用户管理'},

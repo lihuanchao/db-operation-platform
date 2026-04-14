@@ -15,6 +15,8 @@
               <el-option label="全部日志" value="all" />
               <el-option label="归档任务" value="archive" />
               <el-option label="数据闪回" value="flashback" />
+              <el-option label="SQL限流运行" value="sql_throttle_run" />
+              <el-option label="SQL Kill日志" value="sql_kill" />
             </el-select>
           </el-form-item>
           <el-form-item label="任务名称">
@@ -202,7 +204,10 @@ onUnmounted(() => {
 })
 
 function getLogTypeText(logType?: ExecutionLogRouteType) {
-  return logType === 'flashback' ? '数据闪回' : '归档任务'
+  if (logType === 'flashback') return '数据闪回'
+  if (logType === 'sql_throttle_run') return 'SQL限流运行'
+  if (logType === 'sql_kill') return 'SQL Kill日志'
+  return '归档任务'
 }
 
 function normalizeLogType(logType?: ExecutionLogRouteType) {
@@ -225,6 +230,10 @@ function canDownloadLog(row: ExecutionLog) {
   }
 
   if (logType === 'flashback') {
+    return true
+  }
+
+  if (logType === 'sql_throttle_run' || logType === 'sql_kill') {
     return true
   }
 
