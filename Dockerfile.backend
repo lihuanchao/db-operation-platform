@@ -44,12 +44,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY backend /app/backend
 COPY static /app/static
 COPY templates /app/templates
-COPY instance /app/instance
 
 # 创建日志和临时目录
-RUN mkdir -p /app/arch/log \
+RUN mkdir -p /app/instance \
+    && mkdir -p /app/arch/log \
     && mkdir -p /app/arch/tmp \
     && mkdir -p /app/flashback/tasks \
+    && chmod 755 /app/instance \
     && chmod 755 /app/arch/log \
     && chmod 755 /app/arch/tmp \
     && chmod 755 /app/flashback/tasks \
